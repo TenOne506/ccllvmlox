@@ -1,4 +1,5 @@
 // 引入标准库中的string类，用于处理字符串
+#pragma once
 #include <llvm/ADT/StringRef.h>
 #include <optional>
 #include <sstream>
@@ -86,7 +87,7 @@ public:
      */
     Token(TokenType type, llvm::StringRef lexeme, std::optional<Literal> literal, int line)
         : type(type), lexeme(lexeme), literal(literal), line(line) {}
-
+    [[nodiscard]] TokenType getType() const { return type; }
     // 转换 literal 为字符串
     static std::string literal_to_string(const Literal &literal);
     // 转换 std::optional<Literal> 为字符串
@@ -95,7 +96,37 @@ public:
     /**
      * @brief 将Token对象转换为字符串表示。
      * 
+     * 该方法将词法单元的类型、词素和字面量信息组合成一个字符串，方便调试和输出。
+     * 
      * @return std::string 包含词法单元类型、词素和字面量的字符串。
      */
     [[nodiscard]] std::string toString() const ;
+
+    /**
+     * @brief 获取词法单元的字面量值。
+     * 
+     * 该方法返回词法单元的字面量值，如果字面量存在则返回其值，否则可能会抛出异常。
+     * 
+     * @return Literal 词法单元的字面量值。
+     */
+    [[nodiscard]] Literal getLiteral() const { return literal.value(); }
+
+    /**
+     * @brief 获取词法单元所在的行号。
+     * 
+     * 该方法返回词法单元在源代码中出现的行号，用于定位错误和调试。
+     * 
+     * @return int 词法单元所在的行号。
+     */
+    [[nodiscard]] int getLine() const { return line; }
+
+    /**
+     * @brief 获取词法单元的词素。
+     * 
+     * 该方法返回词法单元在源代码中的实际字符序列。
+     * 
+     * @return llvm::StringRef 词法单元的词素。
+     */
+    [[nodiscard]] llvm::StringRef getLexeme() const { return lexeme; }
+
 };
