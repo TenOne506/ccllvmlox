@@ -25,8 +25,9 @@ before_build(function (target)
         end)
 
 add_rules("plugin.compile_commands.autoupdate", {outputdir = ".vscode"})
+set_languages("c++17")
 -- Configure clang-tidy options
-
+add_cxxflags("-fexceptions")
 target("lox")
     set_kind("binary")
     add_includedirs("include")

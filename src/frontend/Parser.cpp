@@ -1,10 +1,13 @@
 // 引入前端解析器的头文件
 #include "frontend/Parser.h"
 // 引入前端词法单元的头文件
+#include "frontend/Ast.h"
 #include "frontend/Token.h"
 // 引入错误处理的头文件
 #include "Error/Error.h"
 // 引入智能指针相关的头文件
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/Support/raw_ostream.h>
 #include <memory>
 #include <optional>
 
@@ -24,6 +27,95 @@ Token Parser::consume(TokenType type, std::string_view message) {
     // 如果不是，则调用错误处理函数并传入当前词法单元和错误信息
     error(peek(), message);
 }
+/**
+ * @brief 解析逻辑与表达式
+ * 
+ * 该函数从相等性表达式开始解析，然后处理连续的逻辑与操作。
+ * 它会不断检查当前词法单元是否为 AND 关键字，如果是，则继续解析右操作数，并创建一个逻辑与表达式对象。
+ * 
+ * @return Expr 解析得到的逻辑与表达式
+ */
+Expr Parser::and_() {
+    // 解析相等性表达式
+    auto expr = equality();
+
+    // 循环处理连续的逻辑与操作
+    while (match(AND)) {
+        // 解析右操作数
+        auto right = equality();
+        // 创建一个逻辑与表达式对象
+        expr = std::make_unique<LogicalExpr>(std::move(expr), LogicalOp::AND, std::move(right));
+    }
+
+    // 返回最终的表达式
+    return expr;
+}
+
+/**
+ * @brief 解析逻辑或表达式
+ * 
+ * 该函数从逻辑与表达式开始解析，然后处理连续的逻辑或操作。
+ * 它会不断检查当前词法单元是否为 OR 关键字，如果是，则继续解析右操作数，并创建一个逻辑或表达式对象。
+ * 
+ * @return Expr 解析得到的逻辑或表达式
+ */
+Expr Parser::or_() {
+    // 解析逻辑与表达式
+    auto expr = and_();
+
+    // 循环处理连续的逻辑或操作
+    while (match(OR)) {
+        // 解析右操作数
+        auto right = and_();
+        // 创建一个逻辑或表达式对象
+        expr = std::make_unique<LogicalExpr>(std::move(expr), LogicalOp::OR, std::move(right));
+    }
+
+    // 返回最终的表达式
+    return expr;
+}
+
+/**
+ * @brief 解析赋值表达式
+ * 
+ * 该函数从逻辑或表达式开始解析，如果遇到等号，则尝试解析赋值操作。
+ * 它会检查左操作数是否为变量表达式或属性访问表达式，如果是，则创建一个赋值表达式对象；
+ * 否则，抛出一个错误。
+ * 
+ * @return Expr 解析得到的赋值表达式
+ */
+Expr Parser::assignment() {
+    // 调用或表达式解析函数
+    auto expr = or_();
+    // 检查是否为赋值操作
+    if (match(EQUAL)) {
+        // 获取等号对应的词法单元
+        const auto equals = previous();
+        // 递归解析赋值表达式的右操作数
+        auto value = assignment();
+
+        // 检查左操作数是否为变量表达式
+        if (std::holds_alternative<VarExprPtr>(expr)) {
+            // 获取变量名
+            const auto name = std::get<VarExprPtr>(expr)->name;
+            // 创建一个赋值表达式对象
+            return std::make_unique<AssignExpr>(name, std::move(value));
+        }
+        // 检查左操作数是否为属性访问表达式
+        if (std::holds_alternative<GetExprPtr>(expr)) {
+            // 获取属性访问表达式
+            const auto &getExpr = std::get<GetExprPtr>(expr);
+            // 创建一个属性赋值表达式对象
+            return std::make_unique<SetExpr>(std::move(getExpr->object), getExpr->name, std::move(value));
+        }
+
+        // 如果左操作数不是有效的赋值目标，则抛出错误
+        error(equals, "Invalid assignment target.");
+    }
+
+    // 如果不是赋值操作，则返回逻辑或表达式
+    return expr;
+}
 
 /**
  * @brief 解析表达式，从相等性表达式开始
@@ -32,7 +124,8 @@ Token Parser::consume(TokenType type, std::string_view message) {
  */
 Expr Parser::expression() {
     // 调用相等性表达式解析函数
-    return equality();
+    //return equality();
+    return assignment();
 }
 
 /**
@@ -104,6 +197,70 @@ Expr Parser::primary() {
     // 如果都不是，则报错
     error(peek(), "Expect expression.");
 }
+/**
+ * @brief 完成函数调用表达式的解析
+ * 
+ * 该函数用于解析函数调用的参数列表，并最终创建一个 CallExpr 对象表示函数调用。
+ * 
+ * @param callee 被调用的表达式，通常是一个函数名或方法名
+ * @return Expr 解析得到的函数调用表达式
+ */
+Expr Parser::finishCall(Expr &callee) {
+    // 用于存储函数调用的参数列表
+    llvm::SmallVector<Expr> arguments;
+    // 检查当前词法单元是否不是右括号
+    if (!check(RIGHT_PAREN)) {
+        // 使用 do-while 循环解析参数列表
+        do {
+            // 检查参数数量是否超过最大限制
+            if (arguments.size() >= MAX_PARAMETERS) {
+                // 如果超过限制，输出错误信息
+                llvm::errs() << peek().getLexeme() << "Can't have more than 255 arguments.";
+            }
+            // 解析一个参数表达式并添加到参数列表中
+            arguments.push_back(expression());
+            // 如果当前词法单元是逗号，则继续解析下一个参数
+        } while (match(COMMA));
+    }
+    // 消耗右括号，如果没有则报错
+    consume(RIGHT_PAREN, "Expect ')' after arguments.");
+    // 创建一个 CallExpr 对象表示函数调用，并返回该对象
+    return std::make_unique<CallExpr>(std::move(callee), previous(), std::move(arguments));
+}
+
+/**
+ * @brief 解析函数调用或属性访问表达式
+ * 
+ * 该函数从基本表达式开始解析，然后处理连续的函数调用或属性访问操作。
+ * 它会不断检查当前词法单元是否为左括号或点号，如果是，则继续解析相应的操作。
+ * 
+ * @return Expr 解析得到的函数调用或属性访问表达式
+ */
+Expr Parser::call() {
+    // 解析基本表达式
+    Expr expr = primary();
+
+    // 使用无限循环处理连续的函数调用或属性访问操作
+    while (true) {
+        // 检查当前词法单元是否为左括号
+        if (match(LEFT_PAREN)) {
+            // 如果是左括号，则调用 finishCall 函数完成函数调用的解析
+            finishCall(expr);
+            // 检查当前词法单元是否为点号
+        } else if (match(DOT)) {
+            // 消耗属性名标识符，如果没有则报错
+            Token name = consume(IDENTIFIER, "Expect property name after '.'.");
+            // 创建一个 GetExpr 对象表示属性访问，并更新当前表达式
+            expr = std::make_unique<GetExpr>(std::move(expr), name);
+            // 如果既不是左括号也不是点号，则跳出循环
+        } else {
+            break;
+        }
+    }
+
+    // 返回最终的表达式
+    return expr;
+}
 
 /**
  * @brief 解析一元表达式，如 ! 或 -
@@ -123,7 +280,8 @@ Expr Parser::unary() {
         return std::move(unaryexpr);
     }
     // 如果不是一元表达式，则解析基本表达式
-    return primary();
+    //return primary();
+    return call();
 }
 
 /**
@@ -324,7 +482,7 @@ ClassStmtPtr Parser::classDeclaration() {
     }
     consume(LEFT_BRACE, "Expect '{' before class body.");
 
-    std::vector<FunctionStmtPtr> methods;
+    llvm::SmallVector<FunctionStmtPtr> methods;
     while (!check(RIGHT_BRACE) && !isAtEnd()) { methods.push_back(function(LoxFunctionType::METHOD)); }
 
     consume(RIGHT_BRACE, "Expect '}' after class body.");
@@ -456,6 +614,248 @@ std::optional<Stmt> Parser::declaration() {
         return std::make_optional<Stmt>();
     }
 }
+
+/**
+ * @brief 解析表达式语句
+ * 
+ * 该函数用于解析表达式语句，首先解析表达式，然后消耗分号表示语句结束。
+ * 最后创建一个表达式语句对象并返回其智能指针。
+ * 
+ * @return ExpressionStmtPtr 解析得到的表达式语句的智能指针
+ */
+ExpressionStmtPtr Parser::expressionStatement() {
+    // 解析表达式
+    Expr expr = expression();
+    // 消耗分号，如果没有则报错
+    consume(SEMICOLON, "Expect ';' after expression.");
+    // 创建一个表达式语句对象并返回其智能指针
+    return std::make_unique<ExpressionStmt>(std::move(expr));
+}
+
+/**
+ * @brief 解析打印语句
+ * 
+ * 该函数用于解析打印语句，首先解析要打印的值，然后消耗分号表示语句结束。
+ * 最后创建一个打印语句对象并返回其智能指针。
+ * 
+ * @return PrintStmtPtr 解析得到的打印语句的智能指针
+ */
+PrintStmtPtr Parser::printStatement() {
+    // 解析要打印的值
+    Expr value = expression();
+    // 消耗分号，如果没有则报错
+    consume(SEMICOLON, "Expect ';' after value.");
+    // 创建一个打印语句对象并返回其智能指针
+    return std::make_shared<PrintStmt>(std::move(value));
+}
+
+/**
+ * @brief 解析 for 循环语句
+ * 
+ * 该函数用于解析 for 循环语句，包括初始化语句、循环条件、循环增量和循环体。
+ * 它会将 for 循环转换为 while 循环进行处理。
+ * 
+ * @return Stmt 解析得到的 for 循环语句
+ */
+Stmt Parser::forStatement() {
+    // 消耗左括号，如果没有则报错
+    consume(LEFT_PAREN, "Expect '(' after 'for'.");
+
+    // 用于存储初始化语句的可选值
+    std::optional<Stmt> initializer;
+    // 如果当前词法单元是分号，则初始化语句为空
+    if (match(SEMICOLON)) {
+        initializer = {};
+        // 如果当前词法单元是 VAR，则解析变量声明作为初始化语句
+    } else if (match(VAR)) {
+        initializer = varDeclaration();
+        // 否则，解析表达式语句作为初始化语句
+    } else {
+        initializer = expressionStatement();
+    }
+
+    // 用于存储循环条件的可选值，默认为空
+    std::optional<Expr> condition = {};
+    // 如果当前词法单元不是分号，则解析循环条件
+    if (!check(SEMICOLON)) { condition = expression(); }
+    // 消耗分号，如果没有则报错
+    consume(SEMICOLON, "Expect ';' after loop condition.");
+
+    // 用于存储循环增量的可选值，默认为空
+    std::optional<Expr> increment = {};
+    // 如果当前词法单元不是右括号，则解析循环增量
+    if (!check(RIGHT_PAREN)) { increment = expression(); }
+    // 消耗右括号，如果没有则报错
+    consume(RIGHT_PAREN, "Expect ')' after for clauses.");
+
+    // 解析循环体
+    Stmt body = statement();
+
+    // 如果有循环增量，则将循环体和循环增量语句组合成一个代码块
+    if (increment.has_value()) {
+        // 用于存储代码块内的语句
+        StmtList statements;
+        // 将循环体添加到语句列表中
+        statements.push_back(std::move(body));
+        // 创建一个表达式语句表示循环增量，并添加到语句列表中
+        statements.emplace_back(std::make_shared<ExpressionStmt>(std::move(increment.value())));
+        // 创建一个代码块语句对象
+        body = std::make_shared<BlockStmt>(std::move(statements));
+    }
+
+    // 如果没有循环条件，则使用 true 作为默认循环条件
+    if (!condition.has_value()) { condition = std::make_unique<LiteralExpr>(true); }
+
+    // 将循环体和循环条件组合成一个 while 循环语句
+    body = std::make_shared<WhileStmt>(std::move(condition.value()), std::move(body));
+
+    // 如果有初始化语句，则将初始化语句和 while 循环语句组合成一个代码块
+    if (initializer.has_value()) {
+        // 用于存储代码块内的语句
+        StmtList blockStatements;
+        // 将初始化语句添加到语句列表中
+        blockStatements.push_back(std::move(initializer.value()));
+        // 将 while 循环语句添加到语句列表中
+        blockStatements.push_back(std::move(body));
+        // 创建一个代码块语句对象
+        body = std::make_shared<BlockStmt>(std::move(blockStatements));
+    }
+
+    // 返回最终的语句
+    return body;
+}
+
+/**
+ * @brief 解析 if 语句
+ * 
+ * 该函数用于解析 if 语句，包括条件表达式、then 分支和可选的 else 分支。
+ * 首先消耗左括号，解析条件表达式，再消耗右括号。
+ * 接着解析 then 分支语句，若存在 else 关键字，则继续解析 else 分支语句。
+ * 最后创建一个 IfStmt 对象并返回其智能指针。
+ * 
+ * @return IfStmtPtr 解析得到的 if 语句的智能指针
+ */
+IfStmtPtr Parser::ifStatement() {
+    // 消耗左括号，如果没有则报错
+    consume(LEFT_PAREN, "Expect '(' after 'if'.");
+    // 解析条件表达式
+    auto condition = expression();
+    // 消耗右括号，如果没有则报错
+    consume(RIGHT_PAREN, "Expect ')' after if condition.");
+
+    // 解析 then 分支语句
+    auto thenBranch = statement();
+    // 用于存储 else 分支语句的可选值
+    std::optional<Stmt> elseBranch;
+    // 如果当前词法单元是 ELSE，则解析 else 分支语句
+    if (match(ELSE)) { elseBranch = statement(); }
+    // 创建一个 IfStmt 对象并返回其智能指针
+    return std::make_shared<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+}
+
+/**
+ * @brief 解析 while 语句
+ * 
+ * 该函数用于解析 while 语句，包括条件表达式和循环体。
+ * 首先消耗左括号，解析条件表达式，再消耗右括号。
+ * 接着解析循环体语句。
+ * 最后创建一个 WhileStmt 对象并返回其智能指针。
+ * 
+ * @return WhileStmtPtr 解析得到的 while 语句的智能指针
+ */
+WhileStmtPtr Parser::whileStatement() {
+    // 消耗左括号，如果没有则报错
+    consume(LEFT_PAREN, "Expect '(' after 'while'.");
+    // 解析条件表达式
+    auto condition = expression();
+    // 消耗右括号，如果没有则报错
+    consume(RIGHT_PAREN, "Expect ')' after while condition.");
+    // 解析循环体语句
+    Stmt body = statement();
+
+    // 创建一个 WhileStmt 对象并返回其智能指针
+    return std::make_shared<WhileStmt>(std::move(condition), std::move(body));
+}
+
+
+/**
+ * @brief 解析返回语句
+ * 
+ * 该函数用于解析返回语句，首先获取返回关键字对应的词法单元，
+ * 然后检查是否有返回值，如果有则解析返回值表达式，
+ * 最后消耗分号表示返回语句结束，并创建一个返回语句对象返回。
+ * 
+ * @return ReturnStmtPtr 解析得到的返回语句的智能指针
+ */
+ReturnStmtPtr Parser::returnStatement() {
+    // 获取返回关键字对应的词法单元
+    Token keyword = previous();
+    // 用于存储返回值的可选表达式
+    std::optional<Expr> value;
+    // 如果当前词法单元不是分号，则解析返回值表达式
+    if (!check(SEMICOLON)) { value = expression(); }
+    // 消耗分号，如果没有则报错
+    consume(SEMICOLON, "Expect ';' after return value.");
+    // 创建一个返回语句对象并返回其智能指针
+    return std::make_shared<ReturnStmt>(keyword, std::move(value));
+}
+/**
+ * @brief 解析通用语句
+ * 
+ * 该函数用于解析通用语句，根据当前词法单元的类型，尝试解析不同类型的语句。
+ * 如果没有匹配到特定类型的语句，则解析为表达式语句。
+ * 
+ * @return Stmt 解析得到的语句
+ */
+Stmt Parser::statement() {
+    if (match(RETURN)) { return returnStatement(); }
+    //如果匹配for,解析for循环
+    if (match(FOR)) { return forStatement(); }
+    // 如果当前词法单元是 PRINT，则解析打印语句
+    if (match(PRINT)) { return printStatement(); }
+    // 如果当前词法单元是 RETURN，则解析返回语句
+    if (match(RETURN)) { return returnStatement(); }
+    // 如果当前词法单元是 WHILE，则解析 while 循环语句
+    if (match(WHILE)) { return whileStatement(); }
+    // 如果当前词法单元是 FOR，则解析 for 循环语句
+    if (match(FOR)) { return forStatement(); }
+    // 如果当前词法单元是 IF，则解析 if 条件语句
+    if (match(IF)) { return ifStatement(); }
+    // 如果当前词法单元是左花括号，则解析代码块语句
+    if (match(LEFT_BRACE)) { return std::make_shared<BlockStmt>(block()); }
+
+    // 如果都不匹配，则解析为表达式语句
+    return expressionStatement();
+}
+
+/**
+ * @brief 解析通用语句（重复逻辑，可考虑合并）
+ * 
+ * 该函数的逻辑与 statement 函数相同，用于解析通用语句。
+ * 根据当前词法单元的类型，尝试解析不同类型的语句。
+ * 如果没有匹配到特定类型的语句，则解析为表达式语句。
+ * 
+ * @return Stmt 解析得到的语句
+ */
+Stmt Parser::statements() {
+    // 如果当前词法单元是 PRINT，则解析打印语句
+    if (match(PRINT)) { return printStatement(); }
+    // 如果当前词法单元是 RETURN，则解析返回语句
+    if (match(RETURN)) { return returnStatement(); }
+    // 如果当前词法单元是 WHILE，则解析 while 循环语句
+    if (match(WHILE)) { return whileStatement(); }
+    // 如果当前词法单元是 FOR，则解析 for 循环语句
+    if (match(FOR)) { return forStatement(); }
+    // 如果当前词法单元是 IF，则解析 if 条件语句
+    if (match(IF)) { return ifStatement(); }
+    // 如果当前词法单元是左花括号，则解析代码块语句
+    if (match(LEFT_BRACE)) { return std::make_shared<BlockStmt>(block()); }
+
+    // 如果都不匹配，则解析为表达式语句
+    return expressionStatement();
+}
+
+
 
 /**
  * @brief 解析整个程序，将所有声明语句添加到程序对象中

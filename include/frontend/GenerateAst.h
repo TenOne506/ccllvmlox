@@ -1,3 +1,4 @@
+#pragma  once
 // 引入 LLVM 的 SmallVector 数据结构，用于存储词法单元等数据
 #include <llvm/ADT/SmallVector.h>
 // 引入 LLVM 的 StringRef 类型，用于高效处理字符串

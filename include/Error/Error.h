@@ -1,6 +1,9 @@
+#pragma once
 #include "frontend/Token.h"
 #include <llvm/ADT/StringRef.h>
+#include <llvm/Support/raw_ostream.h>
 static bool hadError = false;
+static bool hadRuntimeError = false;
 /**
      * @brief 报告解析错误。
      *
@@ -31,3 +34,15 @@ void error(Token token, llvm::StringRef message);
      * @param message 错误消息。
      */
 void report(int line, const llvm::StringRef &where, const llvm::StringRef &message);
+
+
+struct runtime_error final : std::runtime_error {
+    Token token;
+    explicit runtime_error(const Token &token, const std::string &message)
+        : std::runtime_error(message), token{token} {}
+};
+
+static void runtimeError(const runtime_error &error) {
+    llvm::errs() << error.what() << "\n[line " << error.token.getLine() << "]";
+    hadRuntimeError = true;
+}
