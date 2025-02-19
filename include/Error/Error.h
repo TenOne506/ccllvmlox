@@ -2,6 +2,7 @@
 #include "frontend/Token.h"
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/raw_ostream.h>
+
 static bool hadError = false;
 static bool hadRuntimeError = false;
 /**
@@ -28,8 +29,8 @@ static void report(const long unsigned int line, const std::string_view where, c
  * @param line 错误发生的行号，用于定位错误在源代码中的位置。
  * @param message 详细的错误消息，描述错误的具体情况。
  */
+static void loxerror(const long unsigned int line, const std::string_view message) { report(line, "", message); }
 static void error(const long unsigned int line, const std::string_view message) { report(line, "", message); }
-
 /**
  * @brief 报告与特定词法单元相关的错误。
  * 
@@ -40,6 +41,13 @@ static void error(const long unsigned int line, const std::string_view message) 
  * @param token 与错误相关的词法单元，包含了错误发生位置的信息。
  * @param message 详细的错误消息，描述错误的具体情况。
  */
+static void loxerror(const Token &token, const std::string_view message) {
+    if (token.getType() == LoxEOF) {
+        report(token.getLine(), " at end", message);
+    } else {
+        report(token.getLine(), " at '" + std::string(token.getLexeme()) + "'", message);
+    }
+}
 static void error(const Token &token, const std::string_view message) {
     if (token.getType() == LoxEOF) {
         report(token.getLine(), " at end", message);
@@ -47,7 +55,6 @@ static void error(const Token &token, const std::string_view message) {
         report(token.getLine(), " at '" + std::string(token.getLexeme()) + "'", message);
     }
 }
-
 
 
 struct runtime_error final : std::runtime_error {

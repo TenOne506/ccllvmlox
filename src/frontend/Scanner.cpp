@@ -182,7 +182,8 @@ bool Scanner::isAlphaNumeric(char c) { return isAlpha(c) || isDigit(c); }
 void Scanner::identifier() {
     while (isAlphaNumeric(peek())) { advance(); }
     std::string text = source.substr(start, current - start);
-    TokenType type = !keywords.contains(text) ? keywords[text] : IDENTIFIER;
+    //这里写错了
+    TokenType type = keywords.contains(text) ? keywords[text] : IDENTIFIER;
     addToken(type);
 }
 /**

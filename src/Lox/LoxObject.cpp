@@ -1,5 +1,9 @@
 #include "Lox/LoxObject.h"
-
+#include "Lox/LoxCallable.h"
+#include "Lox/LoxInstance.h"
+#include <iostream>
+#include <llvm/Support/raw_ostream.h>
+#include <string>
 /**
  * @brief 判断一个 LoxObject 是否为真值。
  * 
@@ -28,5 +32,40 @@ bool isTruthy(const LoxObject &object) {
  */
 std::string to_string(const LoxObject &object) {
     // 目前只是占位符，需要实现具体的转换逻辑
-    return "TODO";
+    //return "TODO";
+    struct Visitor {
+        std::string operator()(const LoxNil &) const { return "nil"; }
+
+        std::string operator()(const LoxString &s) const {
+            std::cout<<"s:"<<s<<std::endl;
+               llvm::outs()<<s;
+               llvm::outs().flush(); // 确保输出立即刷新
+            return  s ;// 字符串带双引号
+        }
+
+        std::string operator()(const LoxNumber &n) const {
+            std::ostringstream oss;
+            // 如果是整数则省略小数点（例如 5.0 → "5"）
+            if (n== static_cast<int>(n)) {
+                oss << static_cast<int>(n);
+            } else {
+                oss << n;
+            }
+            return oss.str();
+        }
+
+        std::string operator()(const LoxBoolean &b) const { return b ? "true" : "false"; }
+
+        std::string operator()(LoxCallablePtr callable) const {
+            return callable ? "<fn " + callable->name + ">" :// 函数名（如 "<fn add>"）
+                       "<null callable>";                      // 空指针保护
+        }
+
+        std::string operator()(LoxInstancePtr instance) const {
+            return instance ? "<" + std::string(instance->klass->name) + " instance>" :// 类名（如 "<Math instance>"）
+                       "<null instance>";                                  // 空指针保护
+        }
+    };
+
+    return std::visit(Visitor{}, object);
 }

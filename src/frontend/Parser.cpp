@@ -166,27 +166,27 @@ bool Parser::isAtEnd() {
  */
 Expr Parser::primary() {
     // 检查是否为布尔值 false
-    if (match<TokenType>(FALSE)) {
+    if (match(FALSE)) {
         // 如果是，则返回一个表示 false 的字面量表达式
         return std::make_unique<LiteralExpr>(false);
     }
     // 检查是否为布尔值 true
-    if (match<TokenType>(TRUE)) {
+    if (match(TRUE)) {
         // 如果是，则返回一个表示 true 的字面量表达式
         return std::make_unique<LiteralExpr>(true);
     }
     // 检查是否为 nil
-    if (match<TokenType>(NIL)) {
+    if (match(NIL)) {
         // 如果是，则返回一个表示 nil 的字面量表达式
         return std::make_unique<LiteralExpr>(nullptr);
     }
     // 检查是否为数字或字符串字面量
-    if (match<TokenType>(NUMBER, STRING)) {
+    if (match({NUMBER, STRING})) {
         // 如果是，则返回一个表示该字面量的表达式
         return std::make_unique<LiteralExpr>(previous().getLiteral());
     }
     // 检查是否为左括号
-    if (match<TokenType>(LEFT_PAREN)) {
+    if (match(LEFT_PAREN)) {
         // 如果是，则递归解析括号内的表达式
         Expr expr = expression();
         // 消耗右括号，如果没有则报错
@@ -194,8 +194,17 @@ Expr Parser::primary() {
         // 返回一个表示括号表达式的对象
         return std::make_unique<GroupingExpr>(std::move(expr));
     }
+
+    if (match(THIS)) { return std::make_unique<ThisExpr>(previous()); }
+
+    if (match(SUPER)) {
+        Token keyword = previous();
+        consume(DOT, "Expect '.' after 'super'.");
+        Token method = consume(IDENTIFIER, "Expect superclass method name.");
+        return std::make_unique<SuperExpr>(keyword, method);
+    }
     // 如果都不是，则报错
-    error(peek(), "Expect expression.");
+    throw error(peek(), "Expect expression.in prarser cpp 208 line");
 }
 /**
  * @brief 完成函数调用表达式的解析
@@ -245,7 +254,7 @@ Expr Parser::call() {
         // 检查当前词法单元是否为左括号
         if (match(LEFT_PAREN)) {
             // 如果是左括号，则调用 finishCall 函数完成函数调用的解析
-            finishCall(expr);
+            expr = finishCall(expr);
             // 检查当前词法单元是否为点号
         } else if (match(DOT)) {
             // 消耗属性名标识符，如果没有则报错
@@ -269,13 +278,14 @@ Expr Parser::call() {
  */
 Expr Parser::unary() {
     // 检查是否为 ! 或 -
-    if (match<TokenType>(BANG, MINUS)) {
+    if (match({BANG, MINUS})) {
         // 获取操作符
         Token operator_ = previous();
         // 递归解析右操作数
         Expr right = unary();
         // 创建一个一元表达式对象
-        auto unaryexpr = std::make_unique<UnaryExpr>(operator_,static_cast<UnaryOp>(operator_.getType()),std::move(right));
+        auto unaryexpr =
+            std::make_unique<UnaryExpr>(operator_, static_cast<UnaryOp>(operator_.getType()), std::move(right));
         // 返回该对象
         return std::move(unaryexpr);
     }
@@ -293,13 +303,15 @@ Expr Parser::factor() {
     // 解析一元表达式
     Expr expr = unary();
     // 循环处理连续的乘除操作
-    while (match<TokenType>(SLASH, STAR)) {
+    while (match({SLASH, STAR})) {
         // 获取操作符
         Token operator_ = previous();
         // 解析右操作数
         Expr right = unary();
         // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()),std::move(right));
+        auto binexpr = std::make_unique<BinaryExpr>(
+            std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
+        );
         // 更新当前表达式
         expr = std::move(binexpr);
     }
@@ -316,13 +328,15 @@ Expr Parser::term() {
     // 解析乘除表达式
     Expr expr = factor();
     // 循环处理连续的加减操作
-    while (match<TokenType>(MINUS, PLUS)) {
+    while (match({MINUS, PLUS})) {
         // 获取操作符
         Token operator_ = previous();
         // 解析右操作数
         Expr right = factor();
         // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()),std::move(right));
+        auto binexpr = std::make_unique<BinaryExpr>(
+            std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
+        );
         // 更新当前表达式
         expr = std::move(binexpr);
     }
@@ -339,13 +353,15 @@ Expr Parser::comparison() {
     // 解析加减表达式
     Expr expr = term();
     // 循环处理连续的比较操作
-    while (match<TokenType>(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
+    while (match({GREATER, GREATER_EQUAL, LESS, LESS_EQUAL})) {
         // 获取操作符
         Token operator_ = previous();
         // 解析右操作数
         Expr right = term();
         // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()),std::move(right));
+        auto binexpr = std::make_unique<BinaryExpr>(
+            std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
+        );
         // 更新当前表达式
         expr = std::move(binexpr);
     }
@@ -362,13 +378,15 @@ Expr Parser::equality() {
     // 解析比较表达式
     Expr expr = comparison();
     // 循环处理连续的相等性操作
-    while (match<TokenType>(BANG_EQUAL, EQUAL_EQUAL)) {
+    while (match({BANG_EQUAL, EQUAL_EQUAL})) {
         // 获取操作符
         Token operator_ = previous();
         // 解析右操作数
         Expr right = comparison();
         // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_,static_cast<BinaryOp>(operator_.getType()), std::move(right));
+        auto binexpr = std::make_unique<BinaryExpr>(
+            std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
+        );
         // 更新当前表达式
         expr = std::move(binexpr);
     }
@@ -384,21 +402,18 @@ Expr Parser::equality() {
  * @return true 如果匹配到任意一个类型
  * @return false 如果没有匹配到任何类型
  */
-template<typename... Args>
-bool Parser::match(Args... type) {
-    // 遍历所有给定的类型
-    for (auto t: {type...}) {
-        // 检查当前词法单元是否为该类型
-        if (check(t)) {
-            // 如果是，则前进到下一个词法单元
+template<typename T>
+bool Parser::match(const std::initializer_list<T> &types) {
+    for (auto &type: types) {
+        if (check(type)) {
             advance();
-            // 返回匹配成功
             return true;
         }
     }
-    // 如果都不匹配，则返回匹配失败
     return false;
 }
+
+bool Parser::match(const TokenType type) { return match({type}); }
 
 /**
  * @brief 检查当前词法单元是否为指定类型
@@ -613,6 +628,7 @@ std::optional<Stmt> Parser::declaration() {
         // 返回一个空的声明语句
         return std::make_optional<Stmt>();
     }
+    return std::make_optional<Stmt>(statement());
 }
 
 /**
@@ -856,7 +872,6 @@ Stmt Parser::statements() {
 }
 
 
-
 /**
  * @brief 解析整个程序，将所有声明语句添加到程序对象中
  * 
@@ -871,7 +886,7 @@ Program Parser::Parse() {
     // 当未到达词法单元序列的末尾时，继续循环
     while (!isAtEnd()) {
         // 尝试解析一个声明语句
-        if (auto decl = declaration()) {
+        if (auto decl = declaration(); decl.has_value()) {
             // 如果解析成功，将声明语句添加到程序对象的声明列表中
             program.push_back(std::move(decl.value()));
         }

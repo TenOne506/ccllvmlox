@@ -7,8 +7,8 @@
 // 引入 LLVM 的 SmallString 数据结构
 #include <llvm/ADT/SmallString.h>
 // 引入 LLVM 的 SmallVector 数据结构
+#include "Error/Error.h"
 #include <llvm/ADT/SmallVector.h>
-
 #include <utility>
 #define MAX_PARAMETERS 255
 
@@ -53,17 +53,17 @@ private:
      * @return true 如果匹配到任意一个类型。
      * @return false 如果没有匹配到任何类型。
      */
-    template<typename... Args>
-    bool match(Args... type);
-
-    /**
+    template<typename T>
+    bool match(const std::initializer_list<T> &types);
+    bool match(const TokenType type);
+        /**
      * @brief 检查当前词法单元是否为指定类型。
      * 
      * @param type 要检查的词法单元类型。
      * @return true 如果当前词法单元是指定类型。
      * @return false 如果当前词法单元不是指定类型。
      */
-    bool check(TokenType type);
+        bool check(TokenType type);
 
     /**
      * @brief 前进到下一个词法单元，并返回前一个词法单元。
@@ -347,7 +347,7 @@ public:
     Program Parse();
 
     static ParseError error(const Token &token, const std::string &message) {
-        error(token, message);
+        loxerror(token, message);
         return ParseError{message};
     }
 };
