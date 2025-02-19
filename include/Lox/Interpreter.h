@@ -50,4 +50,17 @@ private:
     EnvironmentPtr globals = std::make_shared<Environment>();
     EnvironmentPtr environment = globals;
     int function_depth = 0;
+
+    static LoxNumber checkNumberOperand(const Token &op, const LoxObject &operand) {
+        if (std::holds_alternative<LoxNumber>(operand)) return std::get<LoxNumber>(operand);
+        throw runtime_error(op, "Operand must be a number.");
+    }
+
+    static void checkNumberOperands(const Token &op, const LoxObject &left, const LoxObject &right) {
+        if (std::holds_alternative<LoxNumber>(left) && std::holds_alternative<LoxNumber>(right)) return;
+
+        throw runtime_error(op, "Operands must be numbers.");
+    }
+
+     [[nodiscard]] LoxObject &lookUpVariable(const Token &name, const Assignable &expr) const;
 };

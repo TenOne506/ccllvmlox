@@ -128,12 +128,11 @@ public:
      * @param op 操作符词法单元。
      * @param right 右操作数表达式。
      */
-    BinaryExpr(Expr left, Token op, Expr right) : left(std::move(left)), op(op), right(std::move(right)) {}
-    // 左操作数表达式
+    explicit BinaryExpr(Expr left, const Token &token, const BinaryOp op, Expr right)
+        : left(std::move(left)), token{token}, op{op}, right{std::move(right)} {}
     Expr left;
-    // 操作符词法单元
-    Token op;
-    // 右操作数表达式
+    Token token;
+    BinaryOp op;
     Expr right;
 };
 
@@ -149,7 +148,7 @@ public:
     // 调用的关键字，例如函数名对应的词法单元
     Token keyword;
     // 调用时传递的参数列表
-    llvm::SmallVector<Expr> arguments;
+    std::vector<Expr> arguments;
 
     /**
      * @brief 构造函数，初始化调用表达式。
@@ -158,7 +157,7 @@ public:
      * @param keyword 调用的关键字。
      * @param arguments 调用时传递的参数列表。
      */
-    explicit CallExpr(Expr callee, const Token &keyword, llvm::SmallVector<Expr> arguments)
+    explicit CallExpr(Expr callee, const Token &keyword, std::vector<Expr> arguments)
         : callee{std::move(callee)}, keyword{keyword}, arguments{std::move(arguments)} {}
 };
 
@@ -177,11 +176,11 @@ public:
      * @param op 操作符词法单元。
      * @param right 右操作数表达式。
      */
-    UnaryExpr(Token op, Expr right) : op(op), right(std::move(right)) {}
-    // 操作符词法单元
-    Token op;
-    // 右操作数表达式
-    Expr right;
+   explicit UnaryExpr(const Token &token, const UnaryOp op, Expr expression)
+            : token{token}, op{op}, expression{std::move(expression)} {}
+    Token token;
+    UnaryOp op;
+    Expr expression;
 };
 
 /**
@@ -300,7 +299,7 @@ public:
  * 
  * 该类继承自 Assignable，包含一个名称词法单元，用于表示当前对象。
  */
-class ThisExpr : Assignable {
+class ThisExpr : public Assignable {
 public:
     /**
      * @brief 构造函数，初始化 This 表达式。
@@ -315,7 +314,7 @@ public:
  * 
  * 该类继承自 Assignable，包含一个名称词法单元和一个方法名的词法单元。
  */
-class SuperExpr : Assignable {
+class SuperExpr : public Assignable {
 public:
     // 要调用的父类方法名的词法单元
     Token method;
@@ -376,7 +375,7 @@ public:
  * 
  * 该类继承自 Assignable，包含一个名称词法单元和一个赋值的值表达式。
  */
-class AssignExpr : Assignable {
+class AssignExpr : public Assignable {
 public:
     // 要赋值的值表达式
     Expr value;
@@ -425,9 +424,9 @@ using Stmt = std::variant<
 /**
  * @brief 定义语句列表类型。
  * 
- * 该类型使用 llvm::SmallVector 存储语句变体类型，用于表示一组语句。
+ * 该类型使用 std::vector 存储语句变体类型，用于表示一组语句。
  */
-using StmtList = llvm::SmallVector<Stmt>;
+using StmtList = std::vector<Stmt>;
 
 /**
  * @brief 表达式语句类，表示一个表达式作为语句。
@@ -485,7 +484,7 @@ public:
     // 函数类型
     LoxFunctionType type;
     // 参数列表
-    llvm::SmallVector<Token> parameters;
+    std::vector<Token> parameters;
     // 函数体语句列表
     StmtList body;
 
@@ -498,9 +497,7 @@ public:
      * @param parameters 参数列表。
      * @param body 函数体语句列表。
      */
-    explicit FunctionStmt(
-        const Token &name, const LoxFunctionType type, llvm::SmallVector<Token> parameters, StmtList body
-    )
+    explicit FunctionStmt(const Token &name, const LoxFunctionType type, std::vector<Token> parameters, StmtList body)
         : name{name}, type{type}, parameters{std::move(parameters)}, body{std::move(body)} {}
 };
 
@@ -619,7 +616,7 @@ public:
     // 可选的父类变量表达式
     std::optional<VarExprPtr> super_class;
     // 类方法列表
-    llvm::SmallVector<FunctionStmtPtr> methods;
+    std::vector<FunctionStmtPtr> methods;
 
 
     /**
@@ -629,13 +626,13 @@ public:
      * @param super_class 可选的父类变量表达式。
      * @param methods 类方法列表。
      */
-    ClassStmt(const Token &name, std::optional<VarExprPtr> super_class, llvm::SmallVector<FunctionStmtPtr> methods)
+    ClassStmt(const Token &name, std::optional<VarExprPtr> super_class, std::vector<FunctionStmtPtr> methods)
         : name{name}, super_class{std::move(super_class)}, methods{std::move(methods)} {}
 };
 
 /**
  * @brief 程序类型定义，表示一个程序由一组语句组成。
  * 
- * 使用 llvm::SmallVector 存储语句变体类型。
+ * 使用 std::vector 存储语句变体类型。
  */
-using Program = llvm::SmallVector<Stmt>;
+using Program = std::vector<Stmt>;

@@ -34,7 +34,7 @@ public:
      * @param arguments 传递给可调用对象的参数列表。
      * @return LoxObject 可调用对象的返回值。
      */
-    virtual LoxObject operator()(Interpreter &interpreter, const llvm::SmallVector<LoxObject> &arguments) = 0;
+    virtual LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) = 0;
 
     /**
      * @brief 将可调用对象转换为字符串表示形式。

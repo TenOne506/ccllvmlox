@@ -16,7 +16,7 @@ before_build(function (target)
             end
             -- print("llvm_cflags: " .. llvm_cflags)
             -- print("llvm_ldflags: " .. llvm_ldflags)
-            target:add("cxflags", llvm_cflags)  -- 添加 LLVM 编译标志
+            --target:add("cxflags", llvm_cflags)  -- 添加 LLVM 编译标志
             target:add("ldflags", llvm_ldflags)  -- 添加 LLVM 链接标志
             target:add("links", cleaned_libs)  -- 添加清理后的 LLVM 库
             -- 手动指定核心库，尝试先链接核心库
@@ -25,7 +25,7 @@ before_build(function (target)
         end)
 
 add_rules("plugin.compile_commands.autoupdate", {outputdir = ".vscode"})
-set_languages("c++17")
+set_languages("c++20")
 -- Configure clang-tidy options
 add_cxxflags("-fexceptions")
 target("lox")
@@ -41,7 +41,7 @@ target("lox")
     end
     add_files("src/main.cpp")
     add_files("src/**/*.cpp") -- 递归添加src目录及其所有子目录下的.cpp文件
-    set_languages("c++17")
+    set_languages("c++20")
     -- 在编译前运行 clang-tidy 检查
     -- before_build(function (target)
     --     print("Running clang-tidy...")

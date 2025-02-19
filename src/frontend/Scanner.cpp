@@ -1,5 +1,6 @@
-#include "frontend/Sanner.h"
-
+#include "frontend/Scanner.h"
+#include "Error/Error.h"
+#include "frontend/Token.h"
 #include <llvm/ADT/StringRef.h>
 #include <optional>
 
@@ -62,9 +63,9 @@ void Scanner::addToken(TokenType type) {
  * @param type 要添加的词法单元的类型。
  * @param literal 词法单元的字面量。
  */
-void Scanner::addToken(TokenType type, llvm::StringRef literal) {
+void Scanner::addToken(TokenType type, std::string literal) {
     // 从源代码中提取当前扫描的文本
-    llvm::StringRef text = source.substr(start, current - start);
+    std::string text = source.substr(start, current - start);
     // 创建一个新的词法单元并添加到词法单元列表中
     tokens.push_back(Token(type, text, literal, line));
 }
@@ -150,13 +151,13 @@ void Scanner::loxstring() {
     }
     // 如果到达末尾仍未找到字符串结束符，报告错误
     if (isAtEnd()) {
-        error(line, "Unterminated string.");
+        //error(line, "Unterminated string.");
         return;
     }
     // 移动到字符串结束符之后
     advance();
     // 提取字符串内容
-    llvm::StringRef text = source.substr(start + 1, current - start - 2);
+    std::string text = source.substr(start + 1, current - start - 2);
     // 添加字符串词法单元
     addToken(STRING, text);
 }
@@ -180,8 +181,8 @@ bool Scanner::isAlphaNumeric(char c) { return isAlpha(c) || isDigit(c); }
 
 void Scanner::identifier() {
     while (isAlphaNumeric(peek())) { advance(); }
-    llvm::StringRef text = source.substr(start, current - start);
-    TokenType type = keywords.find(text.str()) == keywords.end() ? keywords[text.str()] : IDENTIFIER;
+    std::string text = source.substr(start, current - start);
+    TokenType type = !keywords.contains(text) ? keywords[text] : IDENTIFIER;
     addToken(type);
 }
 /**
@@ -203,7 +204,7 @@ void Scanner::loxnumber() {
         while (isDigit(peek())) { advance(); }
     }
     // 提取数字内容并添加数字词法单元
-    addToken(NUMBER, llvm::StringRef(source.substr(start, current - start)));
+    addToken(NUMBER, std::string(source.substr(start, current - start)));
 }
 /**
  * @brief 扫描源代码并生成词法单元（Token）列表。
@@ -212,9 +213,9 @@ void Scanner::loxnumber() {
  * 然后调用 `scanToken()` 函数来处理当前的词法单元。最后，它会添加一个表示文件结束的词法单元，
  * 并返回生成的词法单元列表。
  * 
- * @return 包含所有扫描到的词法单元的 `llvm::SmallVector<Token>`。
+ * @return 包含所有扫描到的词法单元的 `std::vector<Token>`。
  */
-llvm::SmallVector<Token> Scanner::scanTokens() {
+std::vector<Token> Scanner::scanTokens() {
     // 当还未到达源代码末尾时，继续扫描
     while (!isAtEnd()) {
         // 我们总是从下一个字符开始扫描
@@ -224,7 +225,7 @@ llvm::SmallVector<Token> Scanner::scanTokens() {
     }
 
     // 添加一个表示文件结束的词法单元
-    tokens.push_back(Token(LoxEOF, "", std::optional<Literal>{std::nullopt}, line));
+    tokens.emplace_back(LoxEOF, "", std::optional<Literal>{std::nullopt}, line);
     // 返回扫描到的所有词法单元
     return tokens;
 }
@@ -350,8 +351,12 @@ void Scanner::scanToken() {
             } else if (isAlpha(current_char)) {
                 identifier();
             } else {
-                // 遇到未知字符，报告错误
-                error(line, "Unexpected character.");
+                if (isDigit(current_char)) {
+                    loxnumber();
+                } else {
+                    // 遇到未知字符，报告错误
+                    error(line, "Unexpected character.");
+                }
             }
             break;
     }

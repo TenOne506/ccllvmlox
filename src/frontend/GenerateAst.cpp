@@ -50,9 +50,9 @@ void splitAndTrim(const std::string& input, const std::string& delimiter, std::s
  * @param types 类型列表，包含了 AST 中各种节点的类型。
  * @param baseName 基类名，所有 AST 节点类的基类名称。
  */
-void GenerateAst::defineAst(llvm::StringRef outtputDir, llvm::SmallVector<llvm::StringRef>& types,llvm::StringRef baseName){
+void GenerateAst::defineAst(std::string outtputDir, std::vector<std::string>& types,std::string baseName){
     // 构建输出文件的路径
-    std::string path = outtputDir.str() + "/" + baseName.str() + ".h";
+    std::string path = outtputDir+ "/" + baseName + ".h";
     // 用于存储文件操作可能产生的错误代码
     std::error_code errorCode;
     // 打开输出文件流
@@ -69,13 +69,13 @@ void GenerateAst::defineAst(llvm::StringRef outtputDir, llvm::SmallVector<llvm::
     //outFile.close();
 
     // 遍历类型列表
-    for(llvm::StringRef type:types){
+    for(std::string type:types){
         // 存储分割后的类名
         std::string className;
         // 存储分割后的超类名
         std::string superClass;
         // 调用 splitAndTrim 函数进行分割和去除空白字符
-        splitAndTrim(type.str(), ":", className, superClass); 
+        splitAndTrim(type, ":", className, superClass); 
         // 这里 outFile 已经关闭，需要重新打开，否则会出错
         definteType(outFile, baseName, className, superClass);
     }
@@ -91,11 +91,11 @@ void GenerateAst::defineAst(llvm::StringRef outtputDir, llvm::SmallVector<llvm::
  * @param className 类名，当前要定义的 AST 节点类的名称。
  * @param superClass 超类名，当前 AST 节点类的父类名称。
  */
-void GenerateAst::definteType(llvm::raw_ostream& outFile, llvm::StringRef basename, llvm::StringRef className, llvm::StringRef superClass){
+void GenerateAst::definteType(llvm::raw_ostream& outFile, std::string basename, std::string className, std::string superClass){
     // 输出类定义，指定继承关系
     outFile << "class" << className << ":" << superClass << "{}\n";
     // 这里定义了一个未使用的变量 field，可考虑删除
-    auto field = superClass.str();
+    auto field = superClass;
     // 注释掉的代码，可能是用于生成构造函数的代码，但存在语法错误
     //outFile << "    " << className << "(" << superClass.str().split(",") << "){}\n";
 }

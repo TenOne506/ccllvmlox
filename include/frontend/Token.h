@@ -72,7 +72,7 @@ class Token {
 private:
     // 成员变量
     TokenType type;                // 词法单元的类型
-    llvm::StringRef lexeme;        // 词法单元的词素，即源代码中的实际字符序列
+    std::string lexeme;        // 词法单元的词素，即源代码中的实际字符序列
     std::optional<Literal> literal;// 在C++中，通常需要具体指定类型，这里假设literal为std::string
     int line;                      // 词法单元所在的行号
 
@@ -85,7 +85,7 @@ public:
      * @param literal 词法单元的字面量值。
      * @param line 词法单元所在的行号。
      */
-    Token(TokenType type, llvm::StringRef lexeme, std::optional<Literal> literal, int line)
+    Token(TokenType type, std::string lexeme, std::optional<Literal> literal, int line)
         : type(type), lexeme(lexeme), literal(literal), line(line) {}
     [[nodiscard]] TokenType getType() const { return type; }
     // 转换 literal 为字符串
@@ -125,8 +125,8 @@ public:
      * 
      * 该方法返回词法单元在源代码中的实际字符序列。
      * 
-     * @return llvm::StringRef 词法单元的词素。
+     * @return std::string 词法单元的词素。
      */
-    [[nodiscard]] llvm::StringRef getLexeme() const { return lexeme; }
+    [[nodiscard]] std::string getLexeme() const { return lexeme; }
 
 };

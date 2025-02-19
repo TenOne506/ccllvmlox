@@ -1,4 +1,4 @@
-#include "Lox/LoxFunction.h"
+#include <Lox/LoxFunction.h>
 
 /**
  * @brief 重载函数调用运算符，用于执行 Lox 函数。
@@ -10,7 +10,7 @@
  * @param arguments 传递给函数的参数列表。
  * @return LoxObject 函数的返回值。
  */
-LoxObject LoxFunction::operator()(Interpreter &interpreter, const llvm::SmallVector<LoxObject> &arguments) {
+LoxObject LoxFunction::operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) {
     // 创建一个新的环境，该环境的封闭环境为当前函数的闭包
     const auto environment = std::make_shared<Environment>(closure);
     // 遍历函数声明中的参数列表

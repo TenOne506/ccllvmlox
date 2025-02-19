@@ -43,7 +43,7 @@ public:
      * @param arguments 传递给函数的参数列表。
      * @return LoxObject 函数调用的返回值。
      */
-    LoxObject operator()(Interpreter &interpreter, const llvm::SmallVector<LoxObject> &arguments) override;
+    LoxObject operator()(Interpreter &interpreter, const std::vector<LoxObject> &arguments) override;
 
     /**
      * @brief 将函数绑定到一个实例上。

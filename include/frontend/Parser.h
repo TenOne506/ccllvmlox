@@ -8,18 +8,26 @@
 #include <llvm/ADT/SmallString.h>
 // 引入 LLVM 的 SmallVector 数据结构
 #include <llvm/ADT/SmallVector.h>
+
+#include <utility>
 #define MAX_PARAMETERS 255
+
+class ParseError final : public std::runtime_error {
+public:
+    explicit ParseError(const std::string &arg) : runtime_error(arg) {}
+};
+
 /**
  * @brief 解析器类，用于将词法单元序列解析为抽象语法树（AST）。
  * 
  * 该类负责接收词法单元序列，并通过一系列的解析方法将其转换为抽象语法树。
  * 解析过程遵循一定的语法规则，从简单的表达式开始，逐步构建复杂的表达式。
  */
-class Parser{
+class Parser {
 
 private:
     // 存储词法单元的向量
-    llvm::SmallVector<Token> tokens;
+    std::vector<Token> tokens;
     // 当前处理的词法单元的索引
     int current = 0;
 
@@ -128,7 +136,7 @@ private:
      * @param message 当词法单元类型不匹配时显示的错误信息。
      * @return Token 消耗的词法单元。
      */
-    Token consume(TokenType type, std::string_view message);
+    Token consume(TokenType type, std::string message);
 
     /**
      * @brief 同步解析器的状态，跳过无效的词法单元直到找到合适的同步点。
@@ -318,7 +326,7 @@ private:
      * @param callee 被调用的函数表达式。
      * @return Expr 完成解析的函数调用表达式。
      */
-    Expr finishCall(Expr& callee);
+    Expr finishCall(Expr &callee);
 
 
 public:
@@ -327,7 +335,7 @@ public:
      * 
      * @param tokens 要解析的词法单元序列。
      */
-    explicit Parser(llvm::SmallVector<Token> tokens);
+    explicit Parser(std::vector<Token> tokens) : tokens{std::move(tokens)} {};
 
     /**
      * @brief 开始解析过程，从表达式解析开始。
@@ -337,4 +345,9 @@ public:
     Expr parse();
 
     Program Parse();
+
+    static ParseError error(const Token &token, const std::string &message) {
+        error(token, message);
+        return ParseError{message};
+    }
 };

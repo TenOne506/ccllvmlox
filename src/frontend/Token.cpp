@@ -40,5 +40,5 @@ static std::string optional_literal_to_string(const std::optional<Literal> &opt_
      * @return std::string 包含词法单元类型、词素和字面量的字符串。
      */
 [[nodiscard]] std::string Token::toString() const {
-    return std::to_string(static_cast<int>(type)) + " " + lexeme.str() + " ";
+    return std::to_string(static_cast<int>(type)) + " " + lexeme + " ";
 }

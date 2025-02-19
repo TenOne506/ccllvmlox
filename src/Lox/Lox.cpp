@@ -13,9 +13,9 @@
  * 
  * @param path 脚本文件的路径。
  */
-void Lox::runFile(const llvm::StringRef &path) {
+void Lox::runFile(const std::string &path) {
     // 尝试打开指定路径的文件
-    std::ifstream file(path.str());
+    std::ifstream file(path);
     // 检查文件是否成功打开
     if (!file.is_open()) {
         // 使用LLVM的错误输出流输出错误信息
@@ -56,7 +56,7 @@ void Lox::runPrompt() {
  * 处理并运行lox代码。
  * @param line 包含lox代码的字符串。
  */
-void Lox::run(const llvm::StringRef &source) {
+void Lox::run(const std::string &source) {
     // 这里通常会调用词法分析器、解析器和解释器
     // 现在只是简单地输出源代码
     llvm::outs() << source << "\n";// 使用LLVM的输出流

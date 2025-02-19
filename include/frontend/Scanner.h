@@ -2,7 +2,7 @@
 #include <llvm/ADT/SmallVector.h>
 // 引入LLVM的StringRef类，用于高效处理字符串引用
 #include <llvm/ADT/StringRef.h>
-
+#include "Error/Error.h"
 // 引入自定义的Token类头文件
 #include "Token.h"
 #include <Error/Error.h>
@@ -16,9 +16,9 @@
 class Scanner {
 private:
     // 存储待扫描的源代码字符串引用
-    llvm::StringRef source;
+    std::string source;
     // 存储扫描得到的词法单元序列
-    llvm::SmallVector<Token> tokens;
+    std::vector<Token> tokens;
     // 当前扫描的词法单元的起始位置
     int start = 0;
     // 当前扫描的字符位置
@@ -40,7 +40,7 @@ private:
     void scanToken();
     char advance();
     void addToken(TokenType type);
-    void addToken(TokenType type, llvm::StringRef literal);
+    void addToken(TokenType type, std::string literal);
     bool match(char expected);
     char peek();
     char peekNext();
@@ -52,11 +52,14 @@ private:
     static bool isDigit(char c);
     static bool isAlpha(char c);
     static bool isAlphaNumeric(char c);
+
 public:
     /**
      * @brief 扫描源代码并生成词法单元序列。
      * 
      * @return 包含所有扫描到的词法单元的SmallVector。
      */
-    llvm::SmallVector<Token> scanTokens();
+    std::vector<Token> scanTokens();
+
+    explicit Scanner(std::string Source) : source{Source} {}
 };

@@ -22,14 +22,14 @@ public:
      * 
      * @param path 包含Lox代码的文件的路径。
      */
-    static void runFile(const llvm::StringRef &path);
+    static void runFile(const std::string &path);
 
     /**
      * @brief 运行给定的Lox源代码。
      * 
      * @param source 要执行的Lox源代码。
      */
-    static void run(const llvm::StringRef &source);
+    static void run(const std::string &source);
 
    
 

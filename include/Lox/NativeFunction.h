@@ -9,8 +9,8 @@
  */
 class NativeFunction final : public LoxCallable {
 public:
-    // 定义原生函数的类型，使用 std::function 封装，接受一个 llvm::SmallVector<LoxObject> 类型的参数列表，并返回一个 LoxObject。
-    using NativeFnType = std::function<LoxObject(const llvm::SmallVector<LoxObject> &)>;
+    // 定义原生函数的类型，使用 std::function 封装，接受一个 std::vector<LoxObject> 类型的参数列表，并返回一个 LoxObject。
+    using NativeFnType = std::function<LoxObject(const std::vector<LoxObject> &)>;
     // 存储原生函数的实例。
     NativeFnType function;
 
@@ -35,7 +35,7 @@ public:
      * @param arguments 传递给原生函数的参数列表。
      * @return LoxObject 原生函数的返回值。
      */
-    LoxObject operator()(Interpreter & /*interpreter*/, const llvm::SmallVector<LoxObject> &arguments) override {
+    LoxObject operator()(Interpreter & /*interpreter*/, const std::vector<LoxObject> &arguments) override {
         return function(arguments);
     }
 

@@ -18,7 +18,7 @@ Environment::Environment() : enclosing{nullptr} {}
  * 
  * @param environment 指向封闭环境的指针。
  */
-Environment::Environment(EnvironmentPtr& environment) : enclosing{environment} {}
+Environment::Environment(EnvironmentPtr &environment) : enclosing{environment} {}
 
 /**
  * @brief 获取指定名称的变量值
@@ -90,4 +90,20 @@ void Environment::assign(const Token &name, const LoxObject &value) {
     llvm::errs() << name.toString() << "Undefined variable '" << std::string(name.getLexeme()) << "'.";
     // 抛出运行时错误
     throw runtime_error(name, "Undefined variable '" + std::string(name.getLexeme()) + "'.");
+}
+
+
+LoxObject &Environment::getAt(const unsigned long distance, const std::string_view &name) {
+    return ancestor(distance)->values[name];
+}
+
+EnvironmentPtr Environment::ancestor(const unsigned long distance) {
+    auto environment = shared_from_this();
+    for (unsigned long i = 0; i < distance; i++) { environment = environment->enclosing; }
+    return environment;
+}
+
+
+void Environment::assignAt(const unsigned long distance, const Token &name, const LoxObject &value) {
+    ancestor(distance)->values[name.getLexeme()] = value;
 }

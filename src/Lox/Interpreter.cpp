@@ -1,8 +1,10 @@
-#include "Lox/Environment.h"
 #include "Lox/Interpreter.h"
+#include "Lox/Environment.h"
 #include "Lox/LoxCallable.h"
-#include "Lox/LoxObject.h"
+#include "Lox/LoxClass.h"
 #include "Lox/LoxFunction.h"
+#include "Lox/LoxInstance.h"
+#include "Lox/LoxObject.h"
 #include "Lox/NativeFunction.h"
 #include "frontend/Ast.h"
 #include <chrono>
@@ -12,15 +14,11 @@
 #include <variant>
 
 Interpreter::Interpreter() {
-    globals->define(
-        "clock", std::make_shared<NativeFunction>(
-                     [](const llvm::SmallVector<LoxObject> &) -> LoxObject {
-                         const auto now = std::chrono::system_clock::now().time_since_epoch();
+    globals->define("clock", std::make_shared<NativeFunction>([](const std::vector<LoxObject> &) -> LoxObject {
+                        const auto now = std::chrono::system_clock::now().time_since_epoch();
 
-                         return static_cast<LoxNumber>(std::chrono::duration_cast<std::chrono::seconds>(now).count());
-                     }
-                 )
-    );
+                        return static_cast<LoxNumber>(std::chrono::duration_cast<std::chrono::seconds>(now).count());
+                    }));
 }
 Interpreter::~Interpreter() = default;
 
@@ -43,13 +41,13 @@ Interpreter::~Interpreter() = default;
  * @param functionStmt 指向 FunctionStmt 的智能指针。
  * @return StmtResult 执行结果，通常为 Nothing。
  */
-StmtResult Interpreter::operator()(const FunctionStmtPtr &functionStmt){
+StmtResult Interpreter::operator()(const FunctionStmtPtr &functionStmt) {
     // 获取函数名
     const auto name = functionStmt->name.getLexeme();
     // 创建一个 LoxFunction 对象，该对象封装了函数声明和当前环境
-    auto function = std::make_shared<LoxFunction>(functionStmt,environment);
+    auto function = std::make_shared<LoxFunction>(functionStmt, environment);
     // 在当前环境中定义函数，将函数名和函数对象关联起来
-    environment->define(name,std::move(function));
+    environment->define(name, std::move(function));
     // 返回 Nothing，表示函数声明语句执行完毕
     return Nothing();
 }
@@ -78,11 +76,9 @@ StmtResult Interpreter::operator()(const IfStmtPtr &ifStmtPtr) {
     // 如果条件为假且没有 else 分支，返回 Nothing
     return Nothing();
 }
-StmtResult Interpreter::operator()(const ReturnStmtPtr &returnStmt){
+StmtResult Interpreter::operator()(const ReturnStmtPtr &returnStmt) {
     LoxObject value = LoxNil();
-    if(returnStmt->expression.has_value()){
-        value = evaluate(returnStmt->expression.value());
-    }
+    if (returnStmt->expression.has_value()) { value = evaluate(returnStmt->expression.value()); }
     return Return(value);
 }
 /**
@@ -176,7 +172,7 @@ LoxObject Interpreter::operator()(const CallExprPtr &callExpr) {
     const auto &callee = evaluate(callExpr->callee);
 
     // 用于存储函数调用的参数
-    llvm::SmallVector<LoxObject> arguments;
+    std::vector<LoxObject> arguments;
     // 遍历调用表达式中的参数列表
     for (auto &argument: callExpr->arguments) {
         // 计算每个参数的值并添加到参数列表中
@@ -208,6 +204,186 @@ LoxObject Interpreter::operator()(const CallExprPtr &callExpr) {
     // 如果被调用的对象不是可调用对象，抛出运行时错误
     throw runtime_error(callExpr->keyword, "Can only call functions and classes.");
 }
+
+StmtResult Interpreter::operator()(const BlockStmtPtr &blockStmt) {
+    return executeblock(blockStmt->statements, std::make_shared<Environment>(environment));
+}
+
+
+StmtResult Interpreter::operator()(const ClassStmtPtr &classStmt) {
+
+    std::optional<std::shared_ptr<LoxClass>> super_class;
+    if (classStmt->super_class.has_value()) {
+        if (const auto &s = (*this)(classStmt->super_class.value());
+            std::holds_alternative<LoxCallablePtr>(s) &&
+            (dynamic_cast<LoxClass *>(std::get<LoxCallablePtr>(s).get()) != nullptr)) {
+            super_class = std::reinterpret_pointer_cast<LoxClass>(std::get<LoxCallablePtr>(s));
+        } else {
+            throw runtime_error(classStmt->super_class.value()->name, "Superclass must be a class.");
+        }
+    }
+
+    environment->define(classStmt->name.getLexeme());
+
+    if (super_class.has_value()) {
+        environment = std::make_shared<Environment>(environment);
+        environment->define("super", super_class.value());
+    }
+
+    std::unordered_map<std::string_view, LoxFunctionPtr> methods;
+
+    for (auto &method: classStmt->methods) {
+        methods[method->name.getLexeme()] =
+            std::make_shared<LoxFunction>(method, environment, method->type == LoxFunctionType::INITIALIZER);
+    }
+
+    if (super_class.has_value()) { environment = environment->get_enclosing(); }
+
+    environment->assign(
+        classStmt->name, std::make_shared<LoxClass>(classStmt->name.getLexeme(), super_class, std::move(methods))
+    );
+
+    return Nothing();
+}
+
+
+LoxObject Interpreter::operator()(const GetExprPtr &getExpr) {
+    if (const auto &object = evaluate(getExpr->object); std::holds_alternative<LoxInstancePtr>(object)) {
+        return std::get<LoxInstancePtr>(object)->get(getExpr->name);
+    }
+
+    throw runtime_error(getExpr->name, "Only instances have properties.");
+}
+
+LoxObject Interpreter::operator()(const SetExprPtr &setExpr) {
+    const auto &object = evaluate(setExpr->object);
+
+    if (!std::holds_alternative<LoxInstancePtr>(object)) {
+        throw runtime_error(setExpr->name, "Only instances have fields.");
+    }
+
+    auto value = evaluate(setExpr->value);
+    std::get<LoxInstancePtr>(object)->set(setExpr->name, value);
+    return value;
+}
+
+LoxObject Interpreter::operator()(const SuperExprPtr &superExpr) const {
+    const auto &callable = std::get<LoxCallablePtr>(environment->getAt(superExpr->distance, "super"));
+    const auto &super_class = std::reinterpret_pointer_cast<LoxClass>(callable);
+    const auto &instance = std::get<LoxInstancePtr>(environment->getAt(superExpr->distance - 1, "this"));
+    const auto &method = super_class->findMethod(superExpr->method.getLexeme());
+    if (method == nullptr) {
+        throw runtime_error(superExpr->method, ("Undefined property" + std::string(superExpr->method.getLexeme())));
+    }
+    return method->bind(instance);
+}
+
+
+LoxObject Interpreter::operator()(const BinaryExprPtr &binaryExpr) {
+    const auto &left = evaluate(binaryExpr->left);
+    const auto &right = evaluate(binaryExpr->right);
+
+    switch (binaryExpr->op) {
+        case BinaryOp::PLUS: {
+            if (std::holds_alternative<LoxNumber>(left) && std::holds_alternative<LoxNumber>(right)) {
+                return std::get<LoxNumber>(left) + std::get<LoxNumber>(right);
+            }
+
+            if (std::holds_alternative<LoxString>(left) && std::holds_alternative<LoxString>(right)) {
+                return std::get<LoxString>(left) + std::get<LoxString>(right);
+            }
+
+            throw runtime_error(binaryExpr->token, "Operands must be two numbers or two strings.");
+        }
+        case BinaryOp::MINUS:
+            checkNumberOperands(binaryExpr->token, left, right);
+            return std::get<LoxNumber>(left) - std::get<LoxNumber>(right);
+        case BinaryOp::SLASH:
+            checkNumberOperands(binaryExpr->token, left, right);
+            return std::get<LoxNumber>(left) / std::get<LoxNumber>(right);
+        case BinaryOp::STAR:
+            checkNumberOperands(binaryExpr->token, left, right);
+            return std::get<LoxNumber>(left) * std::get<LoxNumber>(right);
+        case BinaryOp::GREATER:
+            checkNumberOperands(binaryExpr->token, left, right);
+            return std::get<LoxNumber>(left) > std::get<LoxNumber>(right);
+        case BinaryOp::GREATER_EQUAL:
+            checkNumberOperands(binaryExpr->token, left, right);
+            return std::get<LoxNumber>(left) >= std::get<LoxNumber>(right);
+        case BinaryOp::LESS:
+            checkNumberOperands(binaryExpr->token, left, right);
+            return std::get<LoxNumber>(left) < std::get<LoxNumber>(right);
+        case BinaryOp::LESS_EQUAL:
+            checkNumberOperands(binaryExpr->token, left, right);
+            return std::get<LoxNumber>(left) <= std::get<LoxNumber>(right);
+        case BinaryOp::BANG_EQUAL:
+            return left != right;
+        case BinaryOp::EQUAL_EQUAL:
+            return left == right;
+    }
+
+    __builtin_unreachable();
+}
+LoxObject Interpreter::operator()(const ThisExprPtr &thisExpr) const {
+    return lookUpVariable(thisExpr->name, *thisExpr);
+}
+
+LoxObject Interpreter::operator()(const GroupingExprPtr &groupingExpr) { return evaluate(groupingExpr->expression); }
+
+LoxObject Interpreter::operator()(const LiteralExprPtr &literalExpr) const {
+    return std::visit(
+        overloaded{
+            [](const bool value) -> LoxObject { return value; },
+            [](const double value) -> LoxObject { return value; },
+            [](const std::string_view value) -> LoxObject { return std::string(value); },
+            [](const std::nullptr_t) -> LoxObject { return LoxNil(); },
+            [](const std::monostate) -> LoxObject { return LoxNil(); },
+        },
+        literalExpr->value
+    );
+}
+[[nodiscard]] LoxObject &Interpreter::lookUpVariable(const Token &name, const Assignable &expr) const {
+    if (expr.distance == -1) { return globals->get(name); }
+    return environment->getAt(expr.distance, name.getLexeme());
+}
+
+LoxObject Interpreter::operator()(const LogicalExprPtr &logicalExpr) {
+    auto left = evaluate(logicalExpr->left);
+
+    if (logicalExpr->op == LogicalOp::OR) {
+        if (isTruthy(left)) { return left; }
+    } else {
+        if (!isTruthy(left)) { return left; }
+    }
+
+    return evaluate(logicalExpr->right);
+}
+
+LoxObject Interpreter::operator()(const UnaryExprPtr &unaryExpr) {
+    const auto &result = evaluate(unaryExpr->expression);
+    switch (unaryExpr->op) {
+        case UnaryOp::MINUS: {
+            return -checkNumberOperand(unaryExpr->token, result);
+        }
+        case UnaryOp::BANG:
+            return !isTruthy(result);
+    }
+
+    __builtin_unreachable();
+}
+
+LoxObject Interpreter::operator()(const VarExprPtr &varExpr) const { return lookUpVariable(varExpr->name, *varExpr); }
+
+LoxObject Interpreter::operator()(const AssignExprPtr &assignExpr) {
+    const auto &value = evaluate(assignExpr->value);
+    if (assignExpr->distance == -1) {
+        globals->assign(assignExpr->name, value);
+    } else {
+        environment->assignAt(assignExpr->distance, assignExpr->name, value);
+    }
+    return value;
+}
+
 
 /**
  * @brief 计算表达式的值。
@@ -276,3 +452,5 @@ StmtResult Interpreter::executeblock(const StmtList &statements, const Environme
     // 如果没有遇到 Return 语句，返回 Nothing
     return Nothing{};
 }
+
+

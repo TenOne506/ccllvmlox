@@ -23,7 +23,7 @@ public:
      * 
      * @param args 命令行参数，期望包含程序名和输出目录。
      */
-    static void run(llvm::SmallVector<llvm::StringRef>& args){
+    static void run(std::vector<std::string>& args){
         // 检查参数数量是否为 2，如果不是则输出使用说明
         if(args.size() != 2){
             // 输出错误信息到标准错误输出流
@@ -37,7 +37,7 @@ public:
     }
 private:
     // 静态成员变量，用于存储输出目录
-    static llvm::StringRef outputDir;
+    static std::string outputDir;
 
     /**
      * @brief 定义抽象语法树（AST）的基本结构。
@@ -48,7 +48,7 @@ private:
      * @param types 类型列表，包含了 AST 中各种节点的类型。
      * @param baseName 基类名，所有 AST 节点类的基类名称。
      */
-    void defineAst(llvm::StringRef outtputDir, llvm::SmallVector<llvm::StringRef>& types,llvm::StringRef baseName);
+    void defineAst(std::string outtputDir, std::vector<std::string>& types,std::string baseName);
 
     /**
      * @brief 定义 AST 中的具体类型。
@@ -60,5 +60,5 @@ private:
      * @param className 类名，当前要定义的 AST 节点类的名称。
      * @param superClass 超类名，当前 AST 节点类的父类名称。
      */
-    void definteType(llvm::raw_ostream& outFile,llvm::StringRef basename,llvm::StringRef className,llvm::StringRef superClass);
+    void definteType(llvm::raw_ostream& outFile,std::string basename,std::string className,std::string superClass);
 };

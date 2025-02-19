@@ -18,14 +18,14 @@
  * @param message 当词法单元类型不匹配时显示的错误信息
  * @return Token 消耗的词法单元
  */
-Token Parser::consume(TokenType type, std::string_view message) {
+Token Parser::consume(TokenType type, std::string message) {
     // 检查当前词法单元是否为期望的类型
     if (check(type)) {
         // 如果是，则前进到下一个词法单元并返回当前词法单元
         return advance();
     }
     // 如果不是，则调用错误处理函数并传入当前词法单元和错误信息
-    error(peek(), message);
+    throw error(peek(), message);
 }
 /**
  * @brief 解析逻辑与表达式
@@ -207,7 +207,7 @@ Expr Parser::primary() {
  */
 Expr Parser::finishCall(Expr &callee) {
     // 用于存储函数调用的参数列表
-    llvm::SmallVector<Expr> arguments;
+    std::vector<Expr> arguments;
     // 检查当前词法单元是否不是右括号
     if (!check(RIGHT_PAREN)) {
         // 使用 do-while 循环解析参数列表
@@ -275,7 +275,7 @@ Expr Parser::unary() {
         // 递归解析右操作数
         Expr right = unary();
         // 创建一个一元表达式对象
-        auto unaryexpr = std::make_unique<UnaryExpr>(operator_, std::move(right));
+        auto unaryexpr = std::make_unique<UnaryExpr>(operator_,static_cast<UnaryOp>(operator_.getType()),std::move(right));
         // 返回该对象
         return std::move(unaryexpr);
     }
@@ -299,7 +299,7 @@ Expr Parser::factor() {
         // 解析右操作数
         Expr right = unary();
         // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_, std::move(right));
+        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()),std::move(right));
         // 更新当前表达式
         expr = std::move(binexpr);
     }
@@ -322,7 +322,7 @@ Expr Parser::term() {
         // 解析右操作数
         Expr right = factor();
         // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_, std::move(right));
+        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()),std::move(right));
         // 更新当前表达式
         expr = std::move(binexpr);
     }
@@ -345,7 +345,7 @@ Expr Parser::comparison() {
         // 解析右操作数
         Expr right = term();
         // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_, std::move(right));
+        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()),std::move(right));
         // 更新当前表达式
         expr = std::move(binexpr);
     }
@@ -368,7 +368,7 @@ Expr Parser::equality() {
         // 解析右操作数
         Expr right = comparison();
         // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_, std::move(right));
+        auto binexpr = std::make_unique<BinaryExpr>(std::move(expr), operator_,static_cast<BinaryOp>(operator_.getType()), std::move(right));
         // 更新当前表达式
         expr = std::move(binexpr);
     }
@@ -482,7 +482,7 @@ ClassStmtPtr Parser::classDeclaration() {
     }
     consume(LEFT_BRACE, "Expect '{' before class body.");
 
-    llvm::SmallVector<FunctionStmtPtr> methods;
+    std::vector<FunctionStmtPtr> methods;
     while (!check(RIGHT_BRACE) && !isAtEnd()) { methods.push_back(function(LoxFunctionType::METHOD)); }
 
     consume(RIGHT_BRACE, "Expect '}' after class body.");
@@ -520,7 +520,7 @@ VarStmtPtr Parser::varDeclaration() {
  */
 StmtList Parser::block() {
     // 用于存储代码块内的声明语句
-    llvm::SmallVector<Stmt> statements;
+    std::vector<Stmt> statements;
     // 当未遇到右花括号且未到达词法单元序列的末尾时，继续循环
     while (!check(RIGHT_BRACE) && !isAtEnd()) {
         // 尝试解析一个声明语句
@@ -552,7 +552,7 @@ FunctionStmtPtr Parser::function(LoxFunctionType type) {
     // 消耗左括号，如果没有则报错
     consume(LEFT_PAREN, "expect '(' after" + std::string(kind) + "name");
     // 用于存储函数的参数列表
-    llvm::SmallVector<Token> parameters;
+    std::vector<Token> parameters;
     // 如果当前词法单元不是右括号，则继续解析参数
     if (!check(RIGHT_PAREN)) {
         do {
