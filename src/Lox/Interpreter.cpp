@@ -8,9 +8,11 @@
 #include "Lox/NativeFunction.h"
 #include "frontend/Ast.h"
 #include <chrono>
+#include <iostream>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Support/raw_ostream.h>
 #include <memory>
+#include <ostream>
 #include <variant>
 
 Interpreter::Interpreter() {
@@ -76,11 +78,27 @@ StmtResult Interpreter::operator()(const IfStmtPtr &ifStmtPtr) {
     // 如果条件为假且没有 else 分支，返回 Nothing
     return Nothing();
 }
+/**
+ * @brief 处理 ReturnStmt 语句的调用运算符重载。
+ * 
+ * 该函数执行返回语句，根据返回语句中是否包含表达式来确定返回值。
+ * 如果包含表达式，则计算表达式的值并将其作为返回值；如果不包含表达式，则返回 LoxNil。
+ * 
+ * @param returnStmt 指向 ReturnStmt 的智能指针。
+ * @return StmtResult 执行结果，包含返回值的 Return 对象。
+ */
 StmtResult Interpreter::operator()(const ReturnStmtPtr &returnStmt) {
+    // 初始化返回值为 LoxNil
     LoxObject value = LoxNil();
-    if (returnStmt->expression.has_value()) { value = evaluate(returnStmt->expression.value()); }
+    // 检查返回语句中是否包含表达式
+    if (returnStmt->expression.has_value()) {
+        // 如果包含表达式，计算表达式的值并赋值给返回值
+        value = evaluate(returnStmt->expression.value());
+    }
+    // 返回包含返回值的 Return 对象
     return Return(value);
 }
+
 /**
  * @brief 处理 ExpressionStmt 语句的调用运算符重载。
  * 
@@ -108,7 +126,10 @@ StmtResult Interpreter::operator()(const PrintStmtPtr &printStmt) {
     // 计算表达式的值
     const auto object = evaluate(printStmt->expression);
     // 将对象转换为字符串并输出到标准输出
-    llvm::outs() << to_string(object) << "\n";
+    //llvm::outs() << to_string(object) << "\n";
+    auto temp = to_string(object);
+
+    llvm::outs() << temp<<"\n";
     // 返回 Nothing
     return Nothing();
 }
@@ -205,13 +226,30 @@ LoxObject Interpreter::operator()(const CallExprPtr &callExpr) {
     throw runtime_error(callExpr->keyword, "Can only call functions and classes.");
 }
 
+/**
+ * @brief 处理 BlockStmt 语句的调用运算符重载。
+ * 
+ * 该函数执行代码块语句，创建一个新的环境来执行代码块中的语句。
+ * 新的环境会继承当前环境的变量，但不会影响当前环境中的变量。
+ * 
+ * @param blockStmt 指向 BlockStmt 的智能指针，包含要执行的语句列表。
+ * @return StmtResult 执行结果，如果代码块中遇到 Return 语句则返回该结果，否则返回 Nothing。
+ */
 StmtResult Interpreter::operator()(const BlockStmtPtr &blockStmt) {
     return executeblock(blockStmt->statements, std::make_shared<Environment>(environment));
 }
 
 
+/**
+ * @brief 处理 ClassStmt 语句的调用运算符重载。
+ * 
+ * 该函数执行类声明语句，处理类的继承关系，定义类的方法，并将类对象存储在环境中。
+ * 
+ * @param classStmt 指向 ClassStmt 的智能指针，包含类定义信息。
+ * @return StmtResult 执行结果，通常为 Nothing。
+ */
 StmtResult Interpreter::operator()(const ClassStmtPtr &classStmt) {
-
+    // 处理父类
     std::optional<std::shared_ptr<LoxClass>> super_class;
     if (classStmt->super_class.has_value()) {
         if (const auto &s = (*this)(classStmt->super_class.value());
@@ -223,22 +261,26 @@ StmtResult Interpreter::operator()(const ClassStmtPtr &classStmt) {
         }
     }
 
+    // 在环境中定义类名
     environment->define(classStmt->name.getLexeme());
 
+    // 如果有父类，创建新的环境并定义super
     if (super_class.has_value()) {
         environment = std::make_shared<Environment>(environment);
         environment->define("super", super_class.value());
     }
 
+    // 收集类的方法
     std::unordered_map<std::string_view, LoxFunctionPtr> methods;
-
     for (auto &method: classStmt->methods) {
         methods[method->name.getLexeme()] =
             std::make_shared<LoxFunction>(method, environment, method->type == LoxFunctionType::INITIALIZER);
     }
 
+    // 如果有父类，恢复原来的环境
     if (super_class.has_value()) { environment = environment->get_enclosing(); }
 
+    // 在环境中创建类对象
     environment->assign(
         classStmt->name, std::make_shared<LoxClass>(classStmt->name.getLexeme(), super_class, std::move(methods))
     );
@@ -246,7 +288,14 @@ StmtResult Interpreter::operator()(const ClassStmtPtr &classStmt) {
     return Nothing();
 }
 
-
+/**
+ * @brief 处理 GetExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于获取对象实例的属性值。
+ * 
+ * @param getExpr 指向 GetExpr 的智能指针，表示属性访问表达式。
+ * @return LoxObject 获取到的属性值。
+ */
 LoxObject Interpreter::operator()(const GetExprPtr &getExpr) {
     if (const auto &object = evaluate(getExpr->object); std::holds_alternative<LoxInstancePtr>(object)) {
         return std::get<LoxInstancePtr>(object)->get(getExpr->name);
@@ -255,6 +304,14 @@ LoxObject Interpreter::operator()(const GetExprPtr &getExpr) {
     throw runtime_error(getExpr->name, "Only instances have properties.");
 }
 
+/**
+ * @brief 处理 SetExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于设置对象实例的属性值。
+ * 
+ * @param setExpr 指向 SetExpr 的智能指针，表示属性赋值表达式。
+ * @return LoxObject 设置后的属性值。
+ */
 LoxObject Interpreter::operator()(const SetExprPtr &setExpr) {
     const auto &object = evaluate(setExpr->object);
 
@@ -267,32 +324,57 @@ LoxObject Interpreter::operator()(const SetExprPtr &setExpr) {
     return value;
 }
 
+/**
+ * @brief 处理 SuperExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于调用父类的方法。
+ * 
+ * @param superExpr 指向 SuperExpr 的智能指针，表示父类方法调用表达式。
+ * @return LoxObject 方法调用的返回值。
+ */
 LoxObject Interpreter::operator()(const SuperExprPtr &superExpr) const {
+    // 获取父类对象
     const auto &callable = std::get<LoxCallablePtr>(environment->getAt(superExpr->distance, "super"));
     const auto &super_class = std::reinterpret_pointer_cast<LoxClass>(callable);
+    // 获取当前实例
     const auto &instance = std::get<LoxInstancePtr>(environment->getAt(superExpr->distance - 1, "this"));
+    // 查找父类方法
     const auto &method = super_class->findMethod(superExpr->method.getLexeme());
     if (method == nullptr) {
         throw runtime_error(superExpr->method, ("Undefined property" + std::string(superExpr->method.getLexeme())));
     }
+    // 绑定实例并返回方法
     return method->bind(instance);
 }
 
 
+/**
+ * @brief 处理 BinaryExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于计算二元表达式的值，支持多种运算符操作。
+ * 
+ * @param binaryExpr 指向 BinaryExpr 的智能指针，表示二元表达式。
+ * @return LoxObject 二元表达式计算的结果。
+ */
 LoxObject Interpreter::operator()(const BinaryExprPtr &binaryExpr) {
+    // 计算左右操作数的值
     const auto &left = evaluate(binaryExpr->left);
     const auto &right = evaluate(binaryExpr->right);
 
+    // 根据运算符类型执行相应操作
     switch (binaryExpr->op) {
         case BinaryOp::PLUS: {
+            // 处理加法运算
             if (std::holds_alternative<LoxNumber>(left) && std::holds_alternative<LoxNumber>(right)) {
                 return std::get<LoxNumber>(left) + std::get<LoxNumber>(right);
             }
 
+            // 处理字符串拼接
             if (std::holds_alternative<LoxString>(left) && std::holds_alternative<LoxString>(right)) {
                 return std::get<LoxString>(left) + std::get<LoxString>(right);
             }
 
+            // 如果操作数类型不匹配，抛出错误
             throw runtime_error(binaryExpr->token, "Operands must be two numbers or two strings.");
         }
         case BinaryOp::MINUS:
@@ -322,65 +404,166 @@ LoxObject Interpreter::operator()(const BinaryExprPtr &binaryExpr) {
             return left == right;
     }
 
+    // 如果遇到未处理的运算符，程序将不会执行到这里
     __builtin_unreachable();
 }
+
+/**
+ * @brief 处理 ThisExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于获取当前实例的引用。
+ * 
+ * @param thisExpr 指向 ThisExpr 的智能指针，表示 this 表达式。
+ * @return LoxObject 当前实例的引用。
+ */
 LoxObject Interpreter::operator()(const ThisExprPtr &thisExpr) const {
     return lookUpVariable(thisExpr->name, *thisExpr);
 }
 
+/**
+ * @brief 处理 GroupingExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于计算括号表达式中的值。
+ * 
+ * @param groupingExpr 指向 GroupingExpr 的智能指针，表示括号表达式。
+ * @return LoxObject 括号表达式计算的结果。
+ */
 LoxObject Interpreter::operator()(const GroupingExprPtr &groupingExpr) { return evaluate(groupingExpr->expression); }
 
+/**
+ * @brief 处理 LiteralExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于处理字面量表达式，将字面量值转换为 LoxObject。
+ * 
+ * @param literalExpr 指向 LiteralExpr 的智能指针，表示字面量表达式。
+ * @return LoxObject 字面量值对应的 LoxObject。
+ */
 LoxObject Interpreter::operator()(const LiteralExprPtr &literalExpr) const {
+    // 使用 std::visit 遍历 literalExpr->value 的变体类型
     return std::visit(
+        // 定义一个 overloaded 结构体，用于处理不同类型的字面量
         overloaded{
+            // 处理布尔类型字面量
             [](const bool value) -> LoxObject { return value; },
+            // 处理双精度浮点类型字面量
             [](const double value) -> LoxObject { return value; },
+            // 处理字符串视图类型字面量，将其转换为 std::string 类型
             [](const std::string_view value) -> LoxObject { return std::string(value); },
+            // 处理空指针类型字面量，返回 LoxNil 类型
             [](const std::nullptr_t) -> LoxObject { return LoxNil(); },
+            // 处理无状态类型字面量，返回 LoxNil 类型
             [](const std::monostate) -> LoxObject { return LoxNil(); },
         },
         literalExpr->value
     );
 }
+
+/**
+ * @brief 查找变量的值。
+ * 
+ * 该函数根据变量的作用域距离查找变量的值。如果距离为 -1，表示全局变量；
+ * 否则，根据距离在环境中查找变量。
+ * 
+ * @param name 变量的 Token。
+ * @param expr 包含变量作用域距离的表达式。
+ * @return LoxObject& 变量的引用。
+ */
 [[nodiscard]] LoxObject &Interpreter::lookUpVariable(const Token &name, const Assignable &expr) const {
-    if (expr.distance == -1) { return globals->get(name); }
+    // 判断变量是否为全局变量
+    if (expr.distance == -1) {
+        // 如果是全局变量，从全局环境中获取变量的值
+        return globals->get(name);
+    }
+    // 如果是局部变量，根据作用域距离从当前环境中获取变量的值
     return environment->getAt(expr.distance, name.getLexeme());
 }
 
+/**
+ * @brief 处理 LogicalExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于计算逻辑表达式的值，支持逻辑或（OR）和逻辑与（AND）操作。
+ * 
+ * @param logicalExpr 指向 LogicalExpr 的智能指针，表示逻辑表达式。
+ * @return LoxObject 逻辑表达式计算的结果。
+ */
 LoxObject Interpreter::operator()(const LogicalExprPtr &logicalExpr) {
+    // 计算逻辑表达式的左操作数
     auto left = evaluate(logicalExpr->left);
 
+    // 判断逻辑运算符类型
     if (logicalExpr->op == LogicalOp::OR) {
+        // 如果是逻辑或运算符，且左操作数为真，则返回左操作数
         if (isTruthy(left)) { return left; }
     } else {
+        // 如果是逻辑与运算符，且左操作数为假，则返回左操作数
         if (!isTruthy(left)) { return left; }
     }
 
+    // 如果左操作数不能确定逻辑表达式的结果，则计算右操作数并返回
     return evaluate(logicalExpr->right);
 }
 
+/**
+ * @brief 处理 UnaryExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于计算一元表达式的值，支持负号（MINUS）和逻辑非（BANG）操作。
+ * 
+ * @param unaryExpr 指向 UnaryExpr 的智能指针，表示一元表达式。
+ * @return LoxObject 一元表达式计算的结果。
+ */
 LoxObject Interpreter::operator()(const UnaryExprPtr &unaryExpr) {
+    // 计算一元表达式的操作数
     const auto &result = evaluate(unaryExpr->expression);
+    // 根据一元运算符类型进行相应操作
     switch (unaryExpr->op) {
         case UnaryOp::MINUS: {
+            // 如果是负号运算符，检查操作数是否为数字类型，并返回其相反数
             return -checkNumberOperand(unaryExpr->token, result);
         }
         case UnaryOp::BANG:
+            // 如果是逻辑非运算符，返回操作数的逻辑非结果
             return !isTruthy(result);
     }
 
+    // 如果遇到未处理的运算符，程序将不会执行到这里
     __builtin_unreachable();
 }
 
-LoxObject Interpreter::operator()(const VarExprPtr &varExpr) const { return lookUpVariable(varExpr->name, *varExpr); }
+/**
+ * @brief 处理 VarExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于查找变量的值。
+ * 
+ * @param varExpr 指向 VarExpr 的智能指针，表示变量表达式。
+ * @return LoxObject 变量的值。
+ */
+LoxObject Interpreter::operator()(const VarExprPtr &varExpr) const {
+    // 调用 lookUpVariable 函数查找变量的值
+    return lookUpVariable(varExpr->name, *varExpr);
+}
 
+
+/**
+ * @brief 处理 AssignExpr 表达式的调用运算符重载。
+ * 
+ * 该函数用于给变量赋值，支持全局变量和局部变量的赋值。
+ * 根据变量的作用域距离，决定是在全局环境还是局部环境中进行赋值操作。
+ * 
+ * @param assignExpr 指向 AssignExpr 的智能指针，表示赋值表达式。
+ * @return LoxObject 赋值后的值。
+ */
 LoxObject Interpreter::operator()(const AssignExprPtr &assignExpr) {
+    // 计算赋值表达式右侧的值
     const auto &value = evaluate(assignExpr->value);
+    // 判断变量是否为全局变量
     if (assignExpr->distance == -1) {
+        // 如果是全局变量，在全局环境中进行赋值
         globals->assign(assignExpr->name, value);
     } else {
+        // 如果是局部变量，根据作用域距离在局部环境中进行赋值
         environment->assignAt(assignExpr->distance, assignExpr->name, value);
     }
+    // 返回赋值后的值
     return value;
 }
 
@@ -452,5 +635,3 @@ StmtResult Interpreter::executeblock(const StmtList &statements, const Environme
     // 如果没有遇到 Return 语句，返回 Nothing
     return Nothing{};
 }
-
-

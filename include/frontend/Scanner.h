@@ -2,7 +2,9 @@
 #include <llvm/ADT/SmallVector.h>
 // 引入LLVM的StringRef类，用于高效处理字符串引用
 #include <llvm/ADT/StringRef.h>
+
 #include "Error/Error.h"
+#include <utility>
 // 引入自定义的Token类头文件
 #include "Token.h"
 #include <Error/Error.h>
@@ -11,12 +13,12 @@
  * @brief 扫描器类，用于将输入的源代码字符串转换为词法单元（Token）序列。
  * 
  * 该类负责对输入的源代码进行逐字符扫描，识别出各种词法单元，如关键字、标识符、常量等，
- * 并将它们存储在一个SmallVector中。扫描过程中会记录当前扫描的位置和行号，以便在出现错误时提供准确的信息。
+ * 并将它们存储在一个Vector中。扫描过程中会记录当前扫描的位置和行号，以便在出现错误时提供准确的信息。
  */
 class Scanner {
 private:
     // 存储待扫描的源代码字符串引用
-    std::string source;
+    const std::string source;
     // 存储扫描得到的词法单元序列
     std::vector<Token> tokens;
     // 当前扫描的词法单元的起始位置
@@ -40,7 +42,8 @@ private:
     void scanToken();
     char advance();
     void addToken(TokenType type);
-    void addToken(TokenType type, std::string literal);
+    //void addToken(TokenType type, std::string literal);
+    void addToken(TokenType type, Literal literal);
     bool match(char expected);
     char peek();
     char peekNext();
@@ -61,5 +64,5 @@ public:
      */
     std::vector<Token> scanTokens();
 
-    explicit Scanner(std::string Source) : source{Source} {}
+    explicit Scanner(std::string Source) : source{std::move(Source)} {}
 };

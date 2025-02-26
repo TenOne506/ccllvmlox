@@ -23,23 +23,6 @@ std::unordered_map<std::string, TokenType> Scanner::keywords = {
 char Scanner::advance() {
     // 直接返回当前字符并将 current 指针后移
     return source[current++];
-    // 以下代码为原注释中逻辑，当前未启用
-    // if (current >= source.size()) {
-    //     // 如果超出源代码的大小，标记错误
-    //     hadError = true;
-    //     // 返回 null 字符
-    //     return '\0';
-    // }
-
-    // // 获取当前字符并将 current 指针后移
-    // char currentChar = source[current++];
-
-    // // 如果当前字符是换行符，更新行号
-    // if (currentChar == '\n') {
-    //     line++;
-    // }
-
-    // return currentChar;
 }
 
 /**
@@ -63,13 +46,16 @@ void Scanner::addToken(TokenType type) {
  * @param type 要添加的词法单元的类型。
  * @param literal 词法单元的字面量。
  */
-void Scanner::addToken(TokenType type, std::string literal) {
-    // 从源代码中提取当前扫描的文本
-    std::string text = source.substr(start, current - start);
-    // 创建一个新的词法单元并添加到词法单元列表中
-    tokens.push_back(Token(type, text, literal, line));
+// void Scanner::addToken(TokenType type, std::string literal) {
+//     // 从源代码中提取当前扫描的文本
+//     std::string text = source.substr(start, current - start);
+//     // 创建一个新的词法单元并添加到词法单元列表中
+//     tokens.emplace_back(type, text, literal, line);
+// }
+void Scanner::addToken(TokenType type, Literal literal) {
+    auto lexeme = std::string_view(source).substr(start, current - start);
+    tokens.emplace_back(type, lexeme, literal, line);
 }
-
 /**
  * @brief 检查当前字符是否与预期字符匹配，如果匹配则前进到下一个字符。
  * 
@@ -100,7 +86,7 @@ bool Scanner::match(char expected) {
  */
 [[nodiscard]] bool Scanner::isAtEnd() const {
     // 检查当前位置是否超出了源代码的长度
-    return current >= source.size();
+    return current >= source.length();
 }
 
 /**
@@ -151,15 +137,17 @@ void Scanner::loxstring() {
     }
     // 如果到达末尾仍未找到字符串结束符，报告错误
     if (isAtEnd()) {
-        //error(line, "Unterminated string.");
+        error(line, "Unterminated string.");
         return;
     }
     // 移动到字符串结束符之后
     advance();
-    // 提取字符串内容
-    std::string text = source.substr(start + 1, current - start - 2);
-    // 添加字符串词法单元
-    addToken(STRING, text);
+    // // 提取字符串内容
+    //Bug在这里，生命周期的坑，这里的字符串是临时的，不能用引用
+    //std::string text = source.substr(start + 1, current - start - 2);
+    // // 添加字符串词法单元
+    //addToken(STRING, text);
+    addToken(STRING, std::string_view(source).substr(start + 1, current - 1 - start - 1));
 }
 
 /**
@@ -226,7 +214,7 @@ std::vector<Token> Scanner::scanTokens() {
     }
 
     // 添加一个表示文件结束的词法单元
-    tokens.emplace_back(LoxEOF, "", std::optional<Literal>{std::nullopt}, line);
+    tokens.emplace_back(LoxEOF, "", "", line);
     // 返回扫描到的所有词法单元
     return tokens;
 }

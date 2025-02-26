@@ -6,6 +6,7 @@
 // 引入智能指针相关的头文件，用于管理动态分配的内存
 #include <llvm/ADT/SmallVector.h>
 #include <memory>
+#include <utility>
 #include <vector>
 
 /**
@@ -560,7 +561,7 @@ public:
      * @param name 变量名的词法单元。
      * @param initializer 初始化表达式。
      */
-    explicit VarStmt(const Token &name, Expr initializer) : name{name}, initializer{std::move(initializer)} {}
+    explicit VarStmt(Token name, Expr initializer) : name{std::move(name)}, initializer{std::move(initializer)} {}
 };
 
 /**

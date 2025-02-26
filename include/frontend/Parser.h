@@ -31,6 +31,7 @@ private:
     // 当前处理的词法单元的索引
     int current = 0;
 
+    using parserFn = Expr (Parser::*)();
     /**
      * @brief 解析表达式，从相等性表达式开始。
      * 
@@ -136,7 +137,7 @@ private:
      * @param message 当词法单元类型不匹配时显示的错误信息。
      * @return Token 消耗的词法单元。
      */
-    Token consume(TokenType type, std::string message);
+    Token consume( TokenType type, const std::string& message);
 
     /**
      * @brief 同步解析器的状态，跳过无效的词法单元直到找到合适的同步点。
@@ -328,7 +329,7 @@ private:
      */
     Expr finishCall(Expr &callee);
 
-
+    Expr parseBinaryExpr(const std::initializer_list<TokenType> &types, Expr expr, const parserFn &f);
 public:
     /**
      * @brief 构造函数，初始化解析器并传入词法单元序列。
@@ -337,14 +338,14 @@ public:
      */
     explicit Parser(std::vector<Token> tokens) : tokens{std::move(tokens)} {};
 
-    /**
-     * @brief 开始解析过程，从表达式解析开始。
-     * 
-     * @return Expr 解析得到的表达式。
-     */
-    Expr parse();
+    // /**
+    //  * @brief 开始解析过程，从表达式解析开始。
+    //  * 
+    //  * @return Expr 解析得到的表达式。
+    //  */
+    // Expr parse();
 
-    Program Parse();
+    Program parse();
 
     static ParseError error(const Token &token, const std::string &message) {
         loxerror(token, message);

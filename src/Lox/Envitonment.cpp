@@ -93,17 +93,49 @@ void Environment::assign(const Token &name, const LoxObject &value) {
 }
 
 
+/**
+ * @brief 根据指定的距离获取特定环境中变量的值
+ * 
+ * 该函数通过调用 `ancestor` 方法找到指定距离处的环境，然后从该环境中获取指定名称的变量的值。
+ * 
+ * @param distance 距离当前环境的层数，用于定位目标环境
+ * @param name 要查找的变量的名称
+ * @return LoxObject& 返回找到的变量的值的引用
+ */
 LoxObject &Environment::getAt(const unsigned long distance, const std::string_view &name) {
+    // 调用 ancestor 方法找到指定距离处的环境，并获取该环境中指定名称的变量的值
     return ancestor(distance)->values[name];
 }
 
+/**
+ * @brief 根据指定的距离找到祖先环境
+ * 
+ * 该函数从当前环境开始，通过 `enclosing` 指针逐层向上查找，直到达到指定的距离，返回找到的祖先环境的指针。
+ * 
+ * @param distance 距离当前环境的层数，用于定位目标环境
+ * @return EnvironmentPtr 返回找到的祖先环境的指针
+ */
 EnvironmentPtr Environment::ancestor(const unsigned long distance) {
+    // 获取当前环境的共享指针
     auto environment = shared_from_this();
-    for (unsigned long i = 0; i < distance; i++) { environment = environment->enclosing; }
+    // 循环指定的次数，通过 enclosing 指针逐层向上查找
+    for (unsigned long i = 0; i < distance; i++) { 
+        environment = environment->enclosing; 
+    }
+    // 返回找到的祖先环境的指针
     return environment;
 }
 
-
+/**
+ * @brief 根据指定的距离在特定环境中为变量赋值
+ * 
+ * 该函数通过调用 `ancestor` 方法找到指定距离处的环境，然后在该环境中为指定名称的变量赋新值。
+ * 
+ * @param distance 距离当前环境的层数，用于定位目标环境
+ * @param name 要赋值的变量的 Token 对象
+ * @param value 要赋给变量的新值
+ */
 void Environment::assignAt(const unsigned long distance, const Token &name, const LoxObject &value) {
+    // 调用 ancestor 方法找到指定距离处的环境，并在该环境中为指定名称的变量赋新值
     ancestor(distance)->values[name.getLexeme()] = value;
 }

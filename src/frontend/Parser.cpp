@@ -18,7 +18,7 @@
  * @param message 当词法单元类型不匹配时显示的错误信息
  * @return Token 消耗的词法单元
  */
-Token Parser::consume(TokenType type, std::string message) {
+Token Parser::consume(TokenType type, const std::string& message) {
     // 检查当前词法单元是否为期望的类型
     if (check(type)) {
         // 如果是，则前进到下一个词法单元并返回当前词法单元
@@ -159,6 +159,19 @@ bool Parser::isAtEnd() {
     return peek().getType() == TokenType::LoxEOF;
 }
 
+
+Expr Parser::parseBinaryExpr(const std::initializer_list<TokenType> &types, Expr expr, const parserFn &f) {
+
+    while (match(types)) {
+        auto token = previous();
+        expr = std::make_unique<BinaryExpr>(
+            std::move(expr), token, static_cast<BinaryOp>(token.getType()), std::invoke(f, this)
+        );
+    }
+
+    return expr;
+}
+
 /**
  * @brief 解析基本表达式，如字面量、括号表达式等
  * 
@@ -278,16 +291,21 @@ Expr Parser::call() {
  */
 Expr Parser::unary() {
     // 检查是否为 ! 或 -
+    // if (match({BANG, MINUS})) {
+    //     // 获取操作符
+    //     Token operator_ = previous();
+    //     // 递归解析右操作数
+    //     Expr right = unary();
+    //     // 创建一个一元表达式对象
+    //     auto unaryexpr =
+    //         std::make_unique<UnaryExpr>(operator_, static_cast<UnaryOp>(operator_.getType()), std::move(right));
+    //     // 返回该对象
+    //     return std::move(unaryexpr);
+    // }
     if (match({BANG, MINUS})) {
-        // 获取操作符
-        Token operator_ = previous();
-        // 递归解析右操作数
-        Expr right = unary();
-        // 创建一个一元表达式对象
-        auto unaryexpr =
-            std::make_unique<UnaryExpr>(operator_, static_cast<UnaryOp>(operator_.getType()), std::move(right));
-        // 返回该对象
-        return std::move(unaryexpr);
+        const Token token = previous();
+        auto right = unary();
+        return std::make_unique<UnaryExpr>(token, static_cast<UnaryOp>(token.getType()), std::move(right));
     }
     // 如果不是一元表达式，则解析基本表达式
     //return primary();
@@ -301,22 +319,23 @@ Expr Parser::unary() {
  */
 Expr Parser::factor() {
     // 解析一元表达式
-    Expr expr = unary();
-    // 循环处理连续的乘除操作
-    while (match({SLASH, STAR})) {
-        // 获取操作符
-        Token operator_ = previous();
-        // 解析右操作数
-        Expr right = unary();
-        // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(
-            std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
-        );
-        // 更新当前表达式
-        expr = std::move(binexpr);
-    }
-    // 返回最终的表达式
-    return expr;
+    // Expr expr = unary();
+    // // 循环处理连续的乘除操作
+    // while (match({SLASH, STAR})) {
+    //     // 获取操作符
+    //     Token operator_ = previous();
+    //     // 解析右操作数
+    //     Expr right = unary();
+    //     // 创建一个二元表达式对象
+    //     auto binexpr = std::make_unique<BinaryExpr>(
+    //         std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
+    //     );
+    //     // 更新当前表达式
+    //     expr = std::move(binexpr);
+    // }
+    // // 返回最终的表达式
+    // return expr;
+    return parseBinaryExpr({SLASH, STAR}, unary(), &Parser::unary);
 }
 
 /**
@@ -325,23 +344,24 @@ Expr Parser::factor() {
  * @return Expr 解析得到的加减表达式
  */
 Expr Parser::term() {
-    // 解析乘除表达式
-    Expr expr = factor();
-    // 循环处理连续的加减操作
-    while (match({MINUS, PLUS})) {
-        // 获取操作符
-        Token operator_ = previous();
-        // 解析右操作数
-        Expr right = factor();
-        // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(
-            std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
-        );
-        // 更新当前表达式
-        expr = std::move(binexpr);
-    }
-    // 返回最终的表达式
-    return expr;
+    // // 解析乘除表达式
+    // Expr expr = factor();
+    // // 循环处理连续的加减操作
+    // while (match({MINUS, PLUS})) {
+    //     // 获取操作符
+    //     Token operator_ = previous();
+    //     // 解析右操作数
+    //     Expr right = factor();
+    //     // 创建一个二元表达式对象
+    //     auto binexpr = std::make_unique<BinaryExpr>(
+    //         std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
+    //     );
+    //     // 更新当前表达式
+    //     expr = std::move(binexpr);
+    // }
+    // // 返回最终的表达式
+    // return expr;
+    return parseBinaryExpr({MINUS, PLUS}, factor(), &Parser::factor);
 }
 
 /**
@@ -351,22 +371,23 @@ Expr Parser::term() {
  */
 Expr Parser::comparison() {
     // 解析加减表达式
-    Expr expr = term();
-    // 循环处理连续的比较操作
-    while (match({GREATER, GREATER_EQUAL, LESS, LESS_EQUAL})) {
-        // 获取操作符
-        Token operator_ = previous();
-        // 解析右操作数
-        Expr right = term();
-        // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(
-            std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
-        );
-        // 更新当前表达式
-        expr = std::move(binexpr);
-    }
-    // 返回最终的表达式
-    return expr;
+    // Expr expr = term();
+    // // 循环处理连续的比较操作
+    // while (match({GREATER, GREATER_EQUAL, LESS, LESS_EQUAL})) {
+    //     // 获取操作符
+    //     Token operator_ = previous();
+    //     // 解析右操作数
+    //     Expr right = term();
+    //     // 创建一个二元表达式对象
+    //     auto binexpr = std::make_unique<BinaryExpr>(
+    //         std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
+    //     );
+    //     // 更新当前表达式
+    //     expr = std::move(binexpr);
+    // }
+    // // 返回最终的表达式
+    // return expr;
+    return parseBinaryExpr({GREATER, GREATER_EQUAL, LESS, LESS_EQUAL}, term(), &Parser::term);
 }
 
 /**
@@ -374,26 +395,26 @@ Expr Parser::comparison() {
  * 
  * @return Expr 解析得到的相等性表达式
  */
-Expr Parser::equality() {
-    // 解析比较表达式
-    Expr expr = comparison();
-    // 循环处理连续的相等性操作
-    while (match({BANG_EQUAL, EQUAL_EQUAL})) {
-        // 获取操作符
-        Token operator_ = previous();
-        // 解析右操作数
-        Expr right = comparison();
-        // 创建一个二元表达式对象
-        auto binexpr = std::make_unique<BinaryExpr>(
-            std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
-        );
-        // 更新当前表达式
-        expr = std::move(binexpr);
-    }
-    // 返回最终的表达式
-    return expr;
-}
-
+// Expr Parser::equality() {
+//     // 解析比较表达式
+//     Expr expr = comparison();
+//     // 循环处理连续的相等性操作
+//     while (match({BANG_EQUAL, EQUAL_EQUAL})) {
+//         // 获取操作符
+//         Token operator_ = previous();
+//         // 解析右操作数
+//         Expr right = comparison();
+//         // 创建一个二元表达式对象
+//         auto binexpr = std::make_unique<BinaryExpr>(
+//             std::move(expr), operator_, static_cast<BinaryOp>(operator_.getType()), std::move(right)
+//         );
+//         // 更新当前表达式
+//         expr = std::move(binexpr);
+//     }
+//     // 返回最终的表达式
+//     return expr;
+// }
+Expr Parser::equality() { return parseBinaryExpr({BANG_EQUAL, EQUAL_EQUAL}, comparison(), &Parser::comparison); }
 /**
  * @brief 检查当前词法单元是否匹配任意一个给定的类型，如果匹配则前进到下一个词法单元
  * 
@@ -495,13 +516,21 @@ ClassStmtPtr Parser::classDeclaration() {
         // 创建一个变量表达式表示父类
         superclass = std::make_unique<VarExpr>(previous());
     }
+    // 消耗左花括号，如果没有则报错，确保类体开始处有左花括号
     consume(LEFT_BRACE, "Expect '{' before class body.");
 
+    // 用于存储类中定义的方法
     std::vector<FunctionStmtPtr> methods;
-    while (!check(RIGHT_BRACE) && !isAtEnd()) { methods.push_back(function(LoxFunctionType::METHOD)); }
+    // 当未遇到右花括号且未到达词法单元序列的末尾时，继续循环解析类中的方法
+    while (!check(RIGHT_BRACE) && !isAtEnd()) {
+        // 解析一个方法并添加到方法列表中
+        methods.push_back(function(LoxFunctionType::METHOD));
+    }
 
+    // 消耗右花括号，如果没有则报错，确保类体结束处有右花括号
     consume(RIGHT_BRACE, "Expect '}' after class body.");
 
+    // 创建一个类声明语句对象，包含类名、父类和方法列表，并返回其智能指针
     return std::make_shared<ClassStmt>(name, std::move(superclass), std::move(methods));
 }
 
@@ -824,9 +853,6 @@ ReturnStmtPtr Parser::returnStatement() {
  * @return Stmt 解析得到的语句
  */
 Stmt Parser::statement() {
-    if (match(RETURN)) { return returnStatement(); }
-    //如果匹配for,解析for循环
-    if (match(FOR)) { return forStatement(); }
     // 如果当前词法单元是 PRINT，则解析打印语句
     if (match(PRINT)) { return printStatement(); }
     // 如果当前词法单元是 RETURN，则解析返回语句
@@ -880,15 +906,19 @@ Stmt Parser::statements() {
  * 
  * @return Program 解析得到的程序对象
  */
-Program Parser::Parse() {
+Program Parser::parse() {
     // 创建一个新的程序对象
     auto program = Program();
     // 当未到达词法单元序列的末尾时，继续循环
     while (!isAtEnd()) {
         // 尝试解析一个声明语句
-        if (auto decl = declaration(); decl.has_value()) {
-            // 如果解析成功，将声明语句添加到程序对象的声明列表中
-            program.push_back(std::move(decl.value()));
+        if (auto decl = declaration()) {
+            if (decl.has_value()) {
+                // 如果解析成功，将声明语句添加到程序对象的声明列表中
+                program.push_back(std::move(decl.value()));
+            }
+            // // 如果解析成功，将声明语句添加到程序对象的声明列表中
+            // program.push_back(std::move(decl.value()));
         }
     }
     // 返回解析得到的程序对象

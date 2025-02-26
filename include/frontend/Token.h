@@ -4,6 +4,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <variant>
 /**
  * @enum TokenType
@@ -61,7 +62,7 @@ enum TokenType {
 
     LoxEOF// 文件结束符
 };
-using Literal = std::variant<std::nullptr_t, std::string_view, double, bool, std::monostate>;
+using Literal = std::variant<std::nullptr_t, std::string_view, double, bool>;
 /**
  * @class Token
  * @brief 表示一个词法单元，包含类型、词素、字面量和行号信息。
@@ -72,9 +73,9 @@ class Token {
 private:
     // 成员变量
     TokenType type;                // 词法单元的类型
-    std::string lexeme;        // 词法单元的词素，即源代码中的实际字符序列
+    std::string lexeme;            // 词法单元的词素，即源代码中的实际字符序列
     std::optional<Literal> literal;// 在C++中，通常需要具体指定类型，这里假设literal为std::string
-    int line;                      // 词法单元所在的行号
+    unsigned int line;             // 词法单元所在的行号
 
 public:
     /**
@@ -85,14 +86,14 @@ public:
      * @param literal 词法单元的字面量值。
      * @param line 词法单元所在的行号。
      */
-    Token(TokenType type, std::string lexeme, std::optional<Literal> literal, int line)
-        : type(type), lexeme(lexeme), literal(literal), line(line) {}
+    explicit Token(const TokenType type, const std::string_view lexeme, const Literal &literal, const unsigned int line)
+        : type{type}, lexeme{lexeme}, literal{literal}, line{line} {}
     [[nodiscard]] TokenType getType() const { return type; }
     // 转换 literal 为字符串
     static std::string literal_to_string(const Literal &literal);
     // 转换 std::optional<Literal> 为字符串
     static std::string optional_literal_to_string(const std::optional<Literal> &opt_literal);
-       
+
     /**
      * @brief 将Token对象转换为字符串表示。
      * 
@@ -100,7 +101,7 @@ public:
      * 
      * @return std::string 包含词法单元类型、词素和字面量的字符串。
      */
-    [[nodiscard]] std::string toString() const ;
+    [[nodiscard]] std::string toString() const;
 
     /**
      * @brief 获取词法单元的字面量值。
@@ -118,7 +119,7 @@ public:
      * 
      * @return int 词法单元所在的行号。
      */
-    [[nodiscard]] int getLine() const { return line; }
+    [[nodiscard]] unsigned int getLine() const { return line; }
 
     /**
      * @brief 获取词法单元的词素。
@@ -127,6 +128,6 @@ public:
      * 
      * @return std::string 词法单元的词素。
      */
-    [[nodiscard]] std::string getLexeme() const { return lexeme; }
-
+    [[nodiscard]] std::string_view getLexeme() const { return lexeme; }
+   
 };
