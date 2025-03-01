@@ -38,8 +38,8 @@ private:
      * 
      * @return 如果到达末尾返回true，否则返回false。
      */
-    [[nodiscard]] bool isAtEnd() const;
-    void scanToken();
+    [[nodiscard]] bool isAtEnd() const;//已检查
+    void scanToken();//已检查
     char advance();
     void addToken(TokenType type);
     //void addToken(TokenType type, std::string literal);

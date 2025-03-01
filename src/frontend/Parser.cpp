@@ -18,7 +18,7 @@
  * @param message 当词法单元类型不匹配时显示的错误信息
  * @return Token 消耗的词法单元
  */
-Token Parser::consume(TokenType type, const std::string& message) {
+Token Parser::consume(TokenType type, const std::string &message) {
     // 检查当前词法单元是否为期望的类型
     if (check(type)) {
         // 如果是，则前进到下一个词法单元并返回当前词法单元
@@ -178,35 +178,11 @@ Expr Parser::parseBinaryExpr(const std::initializer_list<TokenType> &types, Expr
  * @return Expr 解析得到的基本表达式
  */
 Expr Parser::primary() {
-    // 检查是否为布尔值 false
-    if (match(FALSE)) {
-        // 如果是，则返回一个表示 false 的字面量表达式
-        return std::make_unique<LiteralExpr>(false);
-    }
-    // 检查是否为布尔值 true
-    if (match(TRUE)) {
-        // 如果是，则返回一个表示 true 的字面量表达式
-        return std::make_unique<LiteralExpr>(true);
-    }
-    // 检查是否为 nil
-    if (match(NIL)) {
-        // 如果是，则返回一个表示 nil 的字面量表达式
-        return std::make_unique<LiteralExpr>(nullptr);
-    }
-    // 检查是否为数字或字符串字面量
-    if (match({NUMBER, STRING})) {
-        // 如果是，则返回一个表示该字面量的表达式
-        return std::make_unique<LiteralExpr>(previous().getLiteral());
-    }
-    // 检查是否为左括号
-    if (match(LEFT_PAREN)) {
-        // 如果是，则递归解析括号内的表达式
-        Expr expr = expression();
-        // 消耗右括号，如果没有则报错
-        consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
-        // 返回一个表示括号表达式的对象
-        return std::make_unique<GroupingExpr>(std::move(expr));
-    }
+    if (match(FALSE)) { return std::make_unique<LiteralExpr>(false); }
+    if (match(TRUE)) { return std::make_unique<LiteralExpr>(true); }
+    if (match(NIL)) { return std::make_unique<LiteralExpr>(nullptr); }
+
+    if (match({NUMBER, STRING})) { return std::make_unique<LiteralExpr>(previous().getLiteral()); }
 
     if (match(THIS)) { return std::make_unique<ThisExpr>(previous()); }
 
@@ -216,8 +192,16 @@ Expr Parser::primary() {
         Token method = consume(IDENTIFIER, "Expect superclass method name.");
         return std::make_unique<SuperExpr>(keyword, method);
     }
-    // 如果都不是，则报错
-    throw error(peek(), "Expect expression.in prarser cpp 208 line");
+
+    if (match(IDENTIFIER)) { return std::make_unique<VarExpr>(previous()); }
+
+    if (match(LEFT_PAREN)) {
+        auto expr = expression();
+        consume(RIGHT_PAREN, "Expect ')' after expression.");
+        return std::make_unique<GroupingExpr>(std::move(expr));
+    }
+
+    throw error(peek(), "Expect expression.");
 }
 /**
  * @brief 完成函数调用表达式的解析
@@ -441,10 +425,7 @@ bool Parser::match(const TokenType type) { return match({type}); }
  * 
  * @param type 要检查的词法单元类型
  */
-bool Parser::check(TokenType type) {
-    if (isAtEnd()) { return false; }
-    return peek().getType() == type;
-}
+bool Parser::check(TokenType type) { return !isAtEnd() && (peek().getType() == type); }
 
 
 /**
@@ -489,6 +470,7 @@ void Parser::synchronize() {
             case PRINT:
             case RETURN:
                 return;
+            default:{}
         }
         // 继续前进到下一个词法单元
         advance();
@@ -590,7 +572,7 @@ StmtList Parser::block() {
  */
 FunctionStmtPtr Parser::function(LoxFunctionType type) {
     // 根据函数类型确定函数的描述
-    const auto *kind = type == LoxFunctionType::FUNCTION ? "function" : "method";
+    const auto *const   kind = type == LoxFunctionType::FUNCTION ? "function" : "method";
     // 消耗函数名标识符，如果没有则报错
     Token name = consume(IDENTIFIER, "Expect " + std::string(kind) + " name.");
     // 消耗左括号，如果没有则报错
@@ -621,7 +603,7 @@ FunctionStmtPtr Parser::function(LoxFunctionType type) {
         name,
         // 如果是方法且函数名是 "init"，则将函数类型设置为构造函数
         type == LoxFunctionType::METHOD && name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : type,
-        std::move(parameters), body
+        parameters, std::move(body)
     );
 }
 
@@ -791,7 +773,7 @@ IfStmtPtr Parser::ifStatement() {
     // 解析 then 分支语句
     auto thenBranch = statement();
     // 用于存储 else 分支语句的可选值
-    std::optional<Stmt> elseBranch;
+    std::optional<Stmt> elseBranch={};
     // 如果当前词法单元是 ELSE，则解析 else 分支语句
     if (match(ELSE)) { elseBranch = statement(); }
     // 创建一个 IfStmt 对象并返回其智能指针
@@ -912,13 +894,13 @@ Program Parser::parse() {
     // 当未到达词法单元序列的末尾时，继续循环
     while (!isAtEnd()) {
         // 尝试解析一个声明语句
-        if (auto decl = declaration()) {
-            if (decl.has_value()) {
-                // 如果解析成功，将声明语句添加到程序对象的声明列表中
-                program.push_back(std::move(decl.value()));
-            }
+        if (auto decl = declaration(); decl.has_value()) {
+            // if (decl.has_value()) {
+            //     // 如果解析成功，将声明语句添加到程序对象的声明列表中
+            //     program.push_back(std::move(decl.value()));
+            // }
             // // 如果解析成功，将声明语句添加到程序对象的声明列表中
-            // program.push_back(std::move(decl.value()));
+            program.push_back(std::move(decl.value()));
         }
     }
     // 返回解析得到的程序对象

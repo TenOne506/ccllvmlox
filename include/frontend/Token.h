@@ -74,7 +74,7 @@ private:
     // 成员变量
     TokenType type;                // 词法单元的类型
     std::string lexeme;            // 词法单元的词素，即源代码中的实际字符序列
-    std::optional<Literal> literal;// 在C++中，通常需要具体指定类型，这里假设literal为std::string
+    Literal literal;// 在C++中，通常需要具体指定类型，这里假设literal为std::string
     unsigned int line;             // 词法单元所在的行号
 
 public:
@@ -110,7 +110,7 @@ public:
      * 
      * @return Literal 词法单元的字面量值。
      */
-    [[nodiscard]] Literal getLiteral() const { return literal.value(); }
+    [[nodiscard]] Literal getLiteral() const { return literal; }
 
     /**
      * @brief 获取词法单元所在的行号。

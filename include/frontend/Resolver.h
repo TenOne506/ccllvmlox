@@ -27,7 +27,7 @@ class Resolver {
     using Scope = std::unordered_map<std::string_view, bool>;
 
     // 作用域栈，用于管理嵌套的作用域
-    std::vector<Scope> scopes;
+    std::vector<Scope> scopes={};
 
     // 当前函数的类型，初始为无函数类型
     LoxFunctionType currentFunction = LoxFunctionType::NONE;

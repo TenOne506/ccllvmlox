@@ -10,7 +10,7 @@
  * 
  * 这个类封装了 Lox 类实例的核心功能，包括所属的类和实例的字段。
  */
-class LoxInstance : std::enable_shared_from_this<LoxInstance> {
+class LoxInstance : public std::enable_shared_from_this<LoxInstance> {
 public:
     // 该实例所属的 Lox 类
     LoxClassPtr klass;

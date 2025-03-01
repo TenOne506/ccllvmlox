@@ -6,9 +6,9 @@
  * 
  * 该函数向作用域栈 `scopes` 中添加一个新的空作用域，用于后续变量的声明和定义。
  */
-void Resolver::beginScope() { 
+void Resolver::beginScope() {
     // 向作用域栈中添加一个新的空作用域
-    scopes.emplace_back(); 
+    scopes.emplace_back();
 }
 
 /**
@@ -16,9 +16,9 @@ void Resolver::beginScope() {
  * 
  * 该函数从作用域栈 `scopes` 中移除最后一个作用域，即当前作用域，标志着该作用域的结束。
  */
-void Resolver::endScope() { 
+void Resolver::endScope() {
     // 从作用域栈中移除最后一个作用域
-    scopes.pop_back(); 
+    scopes.pop_back();
 }
 
 /**
@@ -35,9 +35,9 @@ void Resolver::declare(const Token &name) {
     // 获取当前作用域
     auto &scope = scopes.back();
     // 检查当前作用域中是否已经存在同名变量
-    if (scope.contains(name.getLexeme())) { 
+    if (scope.contains(name.getLexeme())) {
         // 如果存在，抛出错误
-        error(name, "Already a variable with this name in this scope."); 
+        error(name, "Already a variable with this name in this scope.");
     }
     // 声明变量，标记为未定义状态
     scope[name.getLexeme()] = false;
@@ -153,9 +153,9 @@ void Resolver::operator()(const FunctionStmtPtr &functionStmt) {
  * 
  * @param expressionStmt 表达式语句的智能指针
  */
-void Resolver::operator()(const ExpressionStmtPtr &expressionStmt) { 
+void Resolver::operator()(const ExpressionStmtPtr &expressionStmt) {
     // 解析表达式语句中的表达式
-    resolve(expressionStmt->expression); 
+    resolve(expressionStmt->expression);
 }
 
 /**
@@ -165,9 +165,9 @@ void Resolver::operator()(const ExpressionStmtPtr &expressionStmt) {
  * 
  * @param printStmt 打印语句的智能指针
  */
-void Resolver::operator()(const PrintStmtPtr &printStmt) { 
+void Resolver::operator()(const PrintStmtPtr &printStmt) {
     // 解析打印语句中的表达式
-    resolve(printStmt->expression); 
+    resolve(printStmt->expression);
 }
 
 /**
@@ -182,9 +182,8 @@ void Resolver::operator()(const ReturnStmtPtr &returnStmt) {
     if (currentFunction == LoxFunctionType::NONE) {
         // 如果是，抛出错误
         error(returnStmt->keyword, "Can't return from top-level code.");
-    } 
-    // 检查是否在构造函数中返回值
-    else if (returnStmt->expression.has_value() && currentFunction == LoxFunctionType::INITIALIZER) {
+    } else if (returnStmt->expression.has_value() &&
+               currentFunction == LoxFunctionType::INITIALIZER) {// 检查是否在构造函数中返回值
         // 如果是，抛出错误
         error(returnStmt->keyword, "Can't return a value from an initializer.");
     }
@@ -236,9 +235,9 @@ void Resolver::operator()(const IfStmtPtr &ifStmt) {
     // 解析真分支语句
     resolve(ifStmt->thenBranch);
     // 检查是否有假分支语句
-    if (ifStmt->elseBranch.has_value()) { 
+    if (ifStmt->elseBranch.has_value()) {
         // 如果有，解析假分支语句
-        resolve(ifStmt->elseBranch.value()); 
+        resolve(ifStmt->elseBranch.value());
     }
 }
 
@@ -290,9 +289,9 @@ void Resolver::operator()(const ClassStmtPtr &classStmt) {
     // 遍历类的方法
     for (auto &method: classStmt->methods) {
         // 判断方法是否为构造函数
-        const LoxFunctionType methodType = method->name.getLexeme() == "init"
-            ? LoxFunctionType::INITIALIZER
-            : LoxFunctionType::METHOD;
+        //TODO待修改
+        const LoxFunctionType methodType =
+            method->name.getLexeme() == "init" ? LoxFunctionType::INITIALIZER : LoxFunctionType::METHOD;
         // 解析方法
         resolveFunction(method, methodType);
     }
@@ -300,9 +299,9 @@ void Resolver::operator()(const ClassStmtPtr &classStmt) {
     // 结束当前作用域
     endScope();
     // 检查类是否有父类
-    if (classStmt->super_class.has_value()) { 
+    if (classStmt->super_class.has_value()) {
         // 如果有，结束父类作用域
-        endScope(); 
+        endScope();
     }
 
     // 恢复之前的类的类型
@@ -348,9 +347,9 @@ void Resolver::operator()(const CallExprPtr &callExpr) {
     // 解析被调用的函数
     resolve(callExpr->callee);
     // 遍历函数调用的参数
-    for (auto &arg: callExpr->arguments) { 
+    for (auto &arg: callExpr->arguments) {
         // 解析每个参数
-        resolve(arg); 
+        resolve(arg);
     }
 }
 
@@ -361,9 +360,9 @@ void Resolver::operator()(const CallExprPtr &callExpr) {
  * 
  * @param getExpr 属性获取表达式的智能指针
  */
-void Resolver::operator()(const GetExprPtr &getExpr) { 
+void Resolver::operator()(const GetExprPtr &getExpr) {
     // 解析属性所属的对象
-    resolve(getExpr->object); 
+    resolve(getExpr->object);
 }
 
 /**
@@ -412,7 +411,7 @@ void Resolver::operator()(const SuperExprPtr &superExpr) const {
     if (currentClass == ClassType::NONE) {
         // 如果不在类内部，抛出错误
         error(superExpr->name, "Can't use 'super' outside of a class.");
-    } 
+    }
     // 检查该类是否有父类
     else if (currentClass != ClassType::SUBCLASS) {
         // 如果没有父类，抛出错误
@@ -449,9 +448,9 @@ void Resolver::operator()(const VarExprPtr &varExpr) {
  * 
  * @param groupingExpr 分组表达式的智能指针
  */
-void Resolver::operator()(const GroupingExprPtr &groupingExpr) { 
+void Resolver::operator()(const GroupingExprPtr &groupingExpr) {
     // 解析分组表达式中的表达式
-    resolve(groupingExpr->expression); 
+    resolve(groupingExpr->expression);
 }
 
 /**
@@ -484,9 +483,9 @@ void Resolver::operator()(const LogicalExprPtr &logicalExpr) {
  * 
  * @param unaryExpr 一元表达式的智能指针
  */
-void Resolver::operator()(const UnaryExprPtr &unaryExpr) { 
+void Resolver::operator()(const UnaryExprPtr &unaryExpr) {
     // 解析一元表达式中的表达式
-    resolve(unaryExpr->expression); 
+    resolve(unaryExpr->expression);
 }
 
 /**
@@ -498,9 +497,9 @@ void Resolver::operator()(const UnaryExprPtr &unaryExpr) {
  */
 void Resolver::resolve(const std::optional<Expr> &opt) {
     // 检查可选表达式是否有值
-    if (opt.has_value()) { 
+    if (opt.has_value()) {
         // 如果有值，则解析该表达式
-        resolve(opt.value()); 
+        resolve(opt.value());
     }
 }
 
@@ -511,9 +510,9 @@ void Resolver::resolve(const std::optional<Expr> &opt) {
  * 
  * @param expr 表达式
  */
-void Resolver::resolve(const Expr &expr) { 
+void Resolver::resolve(const Expr &expr) {
     // 使用 std::visit 对表达式进行多态调用
-    std::visit(*this, expr); 
+    std::visit(*this, expr);
 }
 
 /**
@@ -523,9 +522,9 @@ void Resolver::resolve(const Expr &expr) {
  * 
  * @param stmt 语句
  */
-void Resolver::resolve(const Stmt &stmt) { 
+void Resolver::resolve(const Stmt &stmt) {
     // 使用 std::visit 对语句进行多态调用
-    std::visit(*this, stmt); 
+    std::visit(*this, stmt);
 }
 
 /**
@@ -537,8 +536,8 @@ void Resolver::resolve(const Stmt &stmt) {
  */
 void Resolver::resolve(const Program &program) {
     // 遍历程序中的每个语句或表达式
-    for (const auto &item: program) { 
+    for (const auto &item: program) {
         // 解析每个语句或表达式
-        resolve(item); 
+        resolve(item);
     }
 }

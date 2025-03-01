@@ -7,7 +7,7 @@
  * 
  * 这个类封装了 Lox 类的核心功能，包括类名、父类、方法和构造函数。
  */
-class LoxClass final : public LoxCallable, std::enable_shared_from_this<LoxClass> {
+class LoxClass final :public LoxCallable,public std::enable_shared_from_this<LoxClass> {
 public:
     // 类的名称
     std::string_view name;

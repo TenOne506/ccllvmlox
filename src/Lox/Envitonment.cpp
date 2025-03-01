@@ -18,7 +18,7 @@ Environment::Environment() : enclosing{nullptr} {}
  * 
  * @param environment 指向封闭环境的指针。
  */
-Environment::Environment(EnvironmentPtr &environment) : enclosing{environment} {}
+Environment::Environment(EnvironmentPtr environment) : enclosing{std::move(environment)}  {}
 
 /**
  * @brief 获取指定名称的变量值
@@ -33,7 +33,7 @@ Environment::Environment(EnvironmentPtr &environment) : enclosing{environment} {
  */
 LoxObject &Environment::get(const Token &name) {
     // 检查当前环境中是否存在该变量
-    if (values.find(name.getLexeme()) != values.end()) {
+    if (values.contains(name.getLexeme())) {
         // 如果存在，返回该变量的值
         return values[name.getLexeme()];
     }
@@ -75,7 +75,7 @@ void Environment::define(std::string_view name, const LoxObject &value) {
  */
 void Environment::assign(const Token &name, const LoxObject &value) {
     // 检查当前环境中是否存在该变量
-    if (values.find(name.getLexeme()) != values.end()) {
+    if (values.contains(name.getLexeme())) {
         // 如果存在，更新该变量的值
         values[name.getLexeme()] = value;
         return;

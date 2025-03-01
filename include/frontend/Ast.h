@@ -158,7 +158,7 @@ public:
      * @param keyword 调用的关键字。
      * @param arguments 调用时传递的参数列表。
      */
-    explicit CallExpr(Expr callee, const Token &keyword, std::vector<Expr> arguments)
+    explicit CallExpr(Expr callee, Token keyword, std::vector<Expr> arguments)
         : callee{std::move(callee)}, keyword{keyword}, arguments{std::move(arguments)} {}
 };
 
@@ -201,7 +201,7 @@ public:
      * 
      * @param value 字面量值。
      */
-    explicit LiteralExpr(Literal value) : value(value) {}
+    explicit LiteralExpr(const Literal &value) : value(value) {}
 };
 
 /**
@@ -434,7 +434,7 @@ using StmtList = std::vector<Stmt>;
  * 
  * 该类继承自 Uncopyable，确保对象不可复制。它包含一个表达式。
  */
-class ExpressionStmt : Uncopyable {
+class ExpressionStmt : public Uncopyable {
 public:
     // 表达式
     Expr expression;
@@ -453,7 +453,7 @@ public:
  * 
  * 该类继承自 Uncopyable，确保对象不可复制。它包含一个条件表达式、一个 then 分支语句和一个可选的 else 分支语句。
  */
-class IfStmt : Uncopyable {
+class IfStmt : public Uncopyable {
 public:
     // 条件表达式
     Expr condition;
@@ -478,7 +478,7 @@ public:
  * 
  * 该类继承自 Uncopyable，确保对象不可复制。它包含函数名的词法单元、函数类型、参数列表和函数体语句列表。
  */
-class FunctionStmt : Uncopyable {
+class FunctionStmt :public Uncopyable {
 public:
     // 函数名的词法单元
     Token name;
@@ -498,7 +498,7 @@ public:
      * @param parameters 参数列表。
      * @param body 函数体语句列表。
      */
-    explicit FunctionStmt(const Token &name, const LoxFunctionType type, std::vector<Token> parameters, StmtList body)
+    explicit FunctionStmt(Token name, const LoxFunctionType type, std::vector<Token> parameters, StmtList body)
         : name{name}, type{type}, parameters{std::move(parameters)}, body{std::move(body)} {}
 };
 
@@ -507,7 +507,7 @@ public:
  * 
  * 该类继承自 Uncopyable，确保对象不可复制。它包含返回关键字的词法单元和可选的返回表达式。
  */
-class ReturnStmt : Uncopyable {
+class ReturnStmt :public Uncopyable {
 public:
     // 返回关键字的词法单元
     Token keyword;
@@ -529,7 +529,7 @@ public:
  * 
  * 该类继承自 Uncopyable，确保对象不可复制。它包含要打印的表达式。
  */
-class PrintStmt : Uncopyable {
+class PrintStmt : public Uncopyable {
 public:
     // 要打印的表达式
     Expr expression;
@@ -547,7 +547,7 @@ public:
  * 
  * 该类继承自 Uncopyable，确保对象不可复制。它包含变量名的词法单元和初始化表达式。
  */
-class VarStmt : Uncopyable {
+class VarStmt : public Uncopyable {
 public:
     // 变量名的词法单元
     Token name;
@@ -561,7 +561,7 @@ public:
      * @param name 变量名的词法单元。
      * @param initializer 初始化表达式。
      */
-    explicit VarStmt(Token name, Expr initializer) : name{std::move(name)}, initializer{std::move(initializer)} {}
+    explicit VarStmt(const Token& name, Expr initializer) : name{name}, initializer{std::move(initializer)} {}
 };
 
 /**
@@ -569,7 +569,7 @@ public:
  * 
  * 该类继承自 Uncopyable，确保对象不可复制。它包含代码块内的语句列表。
  */
-class BlockStmt : Uncopyable {
+class BlockStmt : public Uncopyable {
 public:
     // 代码块内的语句列表
     StmtList statements;
@@ -588,7 +588,7 @@ public:
  * 
  * 该类继承自 Uncopyable，确保对象不可复制。它包含循环条件表达式和循环体语句。
  */
-class WhileStmt : Uncopyable {
+class WhileStmt : public Uncopyable {
 public:
     // 循环条件表达式
     Expr condition;

@@ -1,4 +1,3 @@
-#pragma once
 #include "Lox/LoxClass.h"
 // 包含 LoxFunction 类的头文件
 #include "Lox/LoxFunction.h"

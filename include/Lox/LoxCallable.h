@@ -12,7 +12,7 @@ class LoxCallable {
 public:
     // 可调用对象的参数数量
     int _arity = 0;
-    std::string name="morename";
+    std::string name="callable";
     std::string getname() const{return name;}
     /**
      * @brief 构造函数，初始化可调用对象的参数数量。

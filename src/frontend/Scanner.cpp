@@ -34,7 +34,7 @@ char Scanner::advance() {
  */
 void Scanner::addToken(TokenType type) {
     // 调用重载的 addToken 函数，传入空的字面量
-    addToken(type, "");
+    addToken(type, nullptr);
 }
 
 /**
@@ -193,7 +193,7 @@ void Scanner::loxnumber() {
         while (isDigit(peek())) { advance(); }
     }
     // 提取数字内容并添加数字词法单元
-    addToken(NUMBER, std::string(source.substr(start, current - start)));
+    addToken(NUMBER, std::stod(source.substr(start, current - start)));
 }
 /**
  * @brief 扫描源代码并生成词法单元（Token）列表。

@@ -5,11 +5,11 @@
 #include "frontend/Ast.h"
 #include <memory>
 
-#define MAX_CALL_DEPTH 100
+static int  MAX_CALL_DEPTH=100;
 struct Return {
     LoxObject &value;
     ~Return() = default;
-    explicit Return(LoxObject &value) : value(value) {};
+    // explicit Return(LoxObject &value) : value(value) {};
 };
 
 struct Nothing {};
@@ -17,7 +17,7 @@ using StmtResult = std::variant<LoxObject, Return, Nothing>;
 class Interpreter {
 public:
     Interpreter();
-    ~Interpreter();
+    ~Interpreter()=default;
     //void interpret(const std::vector<StmtPtr> &statements);
     StmtResult operator()(const ExpressionStmtPtr &expressionStmt);
     StmtResult operator()(const IfStmtPtr &ifStmtPtr);
@@ -79,7 +79,7 @@ public:
      * @param newenvironment 执行语句的新环境
      * @return StmtResult 语句块执行结果
      */
-    StmtResult executeblock(const StmtList &statements, const EnvironmentPtr &newenvironment);
+    StmtResult executeBlock(const StmtList &statements, const EnvironmentPtr &newenvironment);
 
 private:
     // 全局环境指针，初始化为一个新的环境
@@ -89,6 +89,7 @@ private:
     // 函数调用深度计数器
     int function_depth = 0;
 
+    // std::unordered_map<std::string_view, LoxFunctionPtr> methods;
     /**
      * @brief 检查操作数是否为数字类型
      * 
@@ -101,7 +102,8 @@ private:
      */
     static LoxNumber checkNumberOperand(const Token &op, const LoxObject &operand) {
         // 检查操作数是否为 LoxNumber 类型
-        if (std::holds_alternative<LoxNumber>(operand)) return std::get<LoxNumber>(operand);
+        if (std::holds_alternative<LoxNumber>(operand)) { return std::get<LoxNumber>(operand);
+}
         // 若不是 LoxNumber 类型，抛出运行时错误
         throw runtime_error(op, "Operand must be a number.");
     }
@@ -118,7 +120,8 @@ private:
      */
     static void checkNumberOperands(const Token &op, const LoxObject &left, const LoxObject &right) {
         // 检查左右操作数是否都为 LoxNumber 类型
-        if (std::holds_alternative<LoxNumber>(left) && std::holds_alternative<LoxNumber>(right)) return;
+        if (std::holds_alternative<LoxNumber>(left) && std::holds_alternative<LoxNumber>(right)) { return;
+}
         // 若不全是 LoxNumber 类型，抛出运行时错误
         throw runtime_error(op, "Operands must be numbers.");
 

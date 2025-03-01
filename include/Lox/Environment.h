@@ -52,7 +52,7 @@ public:
      * 创建一个新环境，并指定其外部环境。
      * @param environment 外部环境的智能指针
      */
-    explicit Environment(EnvironmentPtr& environment);
+    explicit Environment(EnvironmentPtr environment);
 
     /**
      * @brief 获取外部环境

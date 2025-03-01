@@ -336,7 +336,7 @@ public:
      * 
      * @param tokens 要解析的词法单元序列。
      */
-    explicit Parser(std::vector<Token> tokens) : tokens{std::move(tokens)} {};
+    explicit Parser(std::vector<Token> tokens) : tokens{tokens} {};
 
     // /**
     //  * @brief 开始解析过程，从表达式解析开始。

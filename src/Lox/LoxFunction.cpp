@@ -1,4 +1,5 @@
 #include <Lox/LoxFunction.h>
+#include <cstddef>
 
 /**
  * @brief 重载函数调用运算符，用于执行 Lox 函数。
@@ -14,13 +15,14 @@ LoxObject LoxFunction::operator()(Interpreter &interpreter, const std::vector<Lo
     // 创建一个新的环境，该环境的封闭环境为当前函数的闭包
     const auto environment = std::make_shared<Environment>(closure);
     // 遍历函数声明中的参数列表
-    for (int i = 0; i < static_cast<int>(declaration->parameters.size()); i++) {
+    //auto j = declaration->parameters.size();
+    for (size_t i = 0; i < (declaration->parameters.size()); i++) {
         // 将参数名和对应的参数值绑定到新环境中
         environment->define(declaration->parameters[i].getLexeme(), arguments[i]);
     }
 
     // 执行函数体，并获取执行结果
-    if (const auto &result = interpreter.executeblock(declaration->body, environment);
+    if (const auto &result = interpreter.executeBlock(declaration->body, environment);
         std::holds_alternative<Return>(result)) {
         // 如果函数是初始化器，返回 `this` 对象
         if (isInitializer) { return std::move(closure->getAt(0, "this")); }

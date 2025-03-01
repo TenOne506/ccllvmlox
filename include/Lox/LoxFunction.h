@@ -26,10 +26,10 @@ public:
      * @param isInitializer 标记函数是否为初始化器，默认为 false。
      */
     explicit LoxFunction(
-        const std::shared_ptr<FunctionStmt> &declaration, EnvironmentPtr closure, const bool isInitializer = false
+        const std::shared_ptr<FunctionStmt> &declaration, EnvironmentPtr& closure, const bool isInitializer = false
     )
         : LoxCallable(static_cast<int>(declaration->parameters.size())), declaration{declaration},
-          closure{std::move(closure)}, isInitializer{isInitializer} {}
+          closure{closure}, isInitializer{isInitializer} {}
 
     /**
      * @brief 析构函数，默认实现。
